@@ -1,0 +1,5 @@
+device(ai,VME_IO,devAiXy566Se,"XYCOM-566 SE Scanned")
+device(ai,VME_IO,devAiXy566Di,"XYCOM-566 Dif Scanned")
+device(ai,VME_IO,devAiXy566DiL,"XYCOM-566 Dif Latched")
+device(waveform,VME_IO,devWfXy566Sc,"XYCOM-566 Single Channel")
+driver(drvXy566)

@@ -1,0 +1,9 @@
+	XY566 Device & Driver Support
+	=============================
+
+There are a few compiler warnings when building this code.  These are
+associated with some hairy callback scheme as far as I can see.  They
+need to be looked at and proper function pointers declared and passed
+around instead.  I don't have time (or the inclination) to do so just
+now.
+

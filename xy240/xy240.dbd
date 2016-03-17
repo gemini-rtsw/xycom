@@ -1,0 +1,5 @@
+device(bi,VME_IO,devBiXy240,"XYCOM-240")
+device(bo,VME_IO,devBoXy240,"XYCOM-240")
+device(mbbi,VME_IO,devMbbiXy240,"XYCOM-240")
+device(mbbo,VME_IO,devMbboXy240,"XYCOM-240")
+driver(drvXy240)
