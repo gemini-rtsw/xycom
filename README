@@ -1,6 +1,18 @@
+2015-03-17  MDW  Gemini Observatory
+
+This module provides EPICS device driver and record support
+for the Xycom XY240 and XY566 VME boards.
+
+The original source code was obtained from --
+XY240: http://www.aps.anl.gov/epics/download/modules/xycomDigital1-5.tar.gz
+XY566: http://www.aps.anl.gov/epics/download/modules/xycomAnalog1-4.tar.gz
+
+The code for each was modified to be EPICS OSI compliant.
+
+
+The following note on XY566 issues is still relevant:
 	XY566 Device & Driver Support
 	=============================
-
 There are a few compiler warnings when building this code.  These are
 associated with some hairy callback scheme as far as I can see.  They
 need to be looked at and proper function pointers declared and passed
