@@ -56,13 +56,14 @@
 #include <dbDefs.h>
 #include <dbScan.h>
 #include <taskwd.h>
+#include <iocsh.h>
 #include <dbAccess.h>
 #include <cantProceed.h>
 #include <epicsTypes.h>
 #include <epicsThread.h>
 #include <epicsStdio.h>
 #include <epicsExport.h>
-
+#include <epicsPrint.h>
 
 #include "drvXy240.h"
 
@@ -398,25 +399,25 @@ void xy240_bi_io_report(int card)
          xy240_bi_driver(card,masks(j),&jval);
          if (jval != 0) 
             jval = 1;
-         printf("\tChan %d = %lx\t ",j,jval);
+         printf("\tChan %d = %x\t ",j,jval);
       }
       if(k < num_chans){
          xy240_bi_driver(card,masks(k),&kval);
          if (kval != 0) 
             kval = 1;
-         printf("Chan %d = %lx\t ",k,kval);
+         printf("Chan %d = %x\t ",k,kval);
       }
       if(l < num_chans){
          xy240_bi_driver(card,masks(l),&lval);
          if (lval != 0) 
             lval = 1;
-         printf("Chan %d = %lx \t",l,lval);
+         printf("Chan %d = %x \t",l,lval);
       }
       if(m < num_chans){
          xy240_bi_driver(card,masks(m),&mval);
          if (mval != 0) 
             mval = 1;
-         printf("Chan %d = %lx \n",m,mval);
+         printf("Chan %d = %x \n",m,mval);
       }
    }
 }
@@ -443,25 +444,25 @@ void xy240_bo_io_report(int card)
          xy240_bo_read(card,masks(j),&jval);
          if (jval != 0) 
             jval = 1; 
-         printf("\tChan %d = %lx\t ",j,jval);
+         printf("\tChan %d = %x\t ",j,jval);
       }
       if(k < num_chans){
          xy240_bo_read(card,masks(k),&kval);
          if (kval != 0) 
             kval = 1; 
-          printf("Chan %d = %lx\t ",k,kval);
+          printf("Chan %d = %x\t ",k,kval);
       }
       if(l < num_chans){
          xy240_bo_read(card,masks(l),&lval);
          if (lval != 0) 
             lval = 1; 
-         printf("Chan %d = %lx \t",l,lval);
+         printf("Chan %d = %x \t",l,lval);
       }
       if(m < num_chans){
          xy240_bo_read(card,masks(m),&mval);
          if (mval != 0) 
             mval = 1; 
-         printf("Chan %d = %lx \n",m,mval);
+         printf("Chan %d = %x \n",m,mval);
       }
    }
 }
@@ -492,3 +493,55 @@ int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
     bi_addrs[XY240_BI] = base;
     return 0;
 }
+
+
+static const iocshArg drvXy240ConfigArg0 = { "ncards",    iocshArgInt };
+static const iocshArg drvXy240ConfigArg1 = { "nchannels", iocshArgInt };
+static const iocshArg drvXy240ConfigArg2 = { "base",      iocshArgInt };
+static const iocshArg *drvXy240ConfigArgs[] = { &drvXy240ConfigArg0, 
+                                                &drvXy240ConfigArg1, 
+                                                &drvXy240ConfigArg2 };
+static const iocshFuncDef drvXy240ConfigFuncDef =
+                   {"drvXy240Config", 3, drvXy240ConfigArgs}; 
+static void drvXy240ConfigCallFunc(const iocshArgBuf *args )
+{
+   drvXy240Config(args[0].ival, args[1].ival, args[2].ival);
+}
+
+
+static const iocshArg xy240_io_reportArg0 = { "level", iocshArgInt };
+static const iocshArg *xy240_io_reportArgs[] = { &xy240_io_reportArg0 };
+static const iocshFuncDef xy240_io_reportFuncDef =
+                   {"xy240_io_report", 3, xy240_io_reportArgs}; 
+static void xy240_io_reportCallFunc(const iocshArgBuf *args )
+{
+   xy240_io_report(args[0].ival);
+}
+
+
+static const iocshArg xy240_dio_outArg0 = { "card", iocshArgInt };
+static const iocshArg xy240_dio_outArg1 = { "port",  iocshArgInt };
+static const iocshArg xy240_dio_outArg2 = { "val",   iocshArgInt };
+static const iocshArg *xy240_dio_outArgs[] = { &xy240_dio_outArg0, 
+                                                &xy240_dio_outArg1, 
+                                                &xy240_dio_outArg2 };
+static const iocshFuncDef xy240_dio_outFuncDef =
+                   {"xy240_dio_out", 3, xy240_dio_outArgs}; 
+static void xy240_dio_outCallFunc(const iocshArgBuf *args )
+{
+   xy240_dio_out(args[0].ival, args[1].ival, args[2].ival);
+}
+
+
+static void drvXy240RegisterCommands(void)
+{
+   static int firstTime = 1;
+   if (firstTime) {
+      iocshRegister(&drvXy240ConfigFuncDef, drvXy240ConfigCallFunc);
+      iocshRegister(&xy240_io_reportFuncDef, xy240_io_reportCallFunc);
+      iocshRegister(&xy240_dio_outFuncDef, xy240_dio_outCallFunc);
+      firstTime = 0;
+   }
+}
+epicsExportRegistrar(drvXy240RegisterCommands);
+
