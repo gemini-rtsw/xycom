@@ -88,6 +88,7 @@
 #include <devLib.h>
 #include <taskwd.h>
 #include <errlog.h>
+#include <iocsh.h>
 #include <cantProceed.h>
 #include <epicsStdlib.h>
 #include <epicsStdio.h>
@@ -97,14 +98,14 @@
 
 #include "drvXy566.h"
 
-static short ai_num_cards[NUM_TYPES] = {4, 4, 6};
-static short ai_num_channels[NUM_TYPES] = {32,16,16};
+static short ai_num_cards[NUM_TYPES] = {0, 0, 0};
+static short ai_num_channels[NUM_TYPES] = {32,16,16};                 /* channels per card */
 static unsigned short ai_addrs[NUM_TYPES] = {0x6000,0x7000,0xe000};
 static long ai_memaddrs[NUM_TYPES] = {0x000000,0x040000,0x0c0000};
 
 static int AI566_VNUM = 0xf8;  /* Xycom 566 Differential Latched */
 
-static short wf_num_cards[] = {4};
+static short wf_num_cards[] = {0};
 static short wf_num_channels[] = {1};
 static unsigned short wf_addrs[] = {0x9000};
 static unsigned short wf_armaddrs[] = {0x5400};
@@ -122,18 +123,18 @@ static struct {char ** ppc; char*pc;} RCSID = {&(RCSID.pc),
  * Code Portions
  *
  * xy566DoneTask   Task to handle data take completion for the 566 waveform
- * xy566_init      Initializes the 566 waveform cards
+ * wf_xy566_init      Initializes the 566 waveform cards
  * senb/senw      Writes to the 566 where the call provides a req'd delay
  */
 
 
 /* forward references */
-static long report(int level);
-static long init(void);
-static long ai_566_init(void);
+static long xy566_report(int level);
 static long xy566_init(void);
-static long xy566_io_report(int level);
+static long ai_xy566_init(void);
+static long wf_xy566_init(void);
 static long ai_xy566_io_report(int level);
+static long wf_xy566_io_report(int level);
 static void xy566_reset(void *); 
 static void rval_convert(unsigned short *rval);
 static void xy566_rval_report(short card, short type);
@@ -146,27 +147,27 @@ struct {
    DRVSUPFUN   init;
 } drvXy566={
    2,
-   report,
-   init};
+   xy566_report,
+   xy566_init};
 epicsExportAddress(drvet,drvXy566);
 
-static long init(void)
+static long xy566_init(void)
 {
-    ai_566_init();
-    xy566_init();
+    ai_xy566_init();
+    wf_xy566_init();
     return(0);
 }
 
-static long report(int level)
+static long xy566_report(int level)
 {
     ai_xy566_io_report(level);
-    xy566_io_report(level);
+    wf_xy566_io_report(level);
     return(0);
 }
 
 #define MAX_SE_CARDS   (ai_num_cards[XY566SE])
 #define MAX_DI_CARDS   (ai_num_cards[XY566DI])
-#define MAX_DIL_CARDS   (ai_num_cards[XY566DIL])
+#define MAX_DIL_CARDS  (ai_num_cards[XY566DIL])
 
 #define XY566_MEM_INCR  0x10000 /* size of data memory area */
 
@@ -273,7 +274,7 @@ char          **pwf_mem;
 
 /* the routine to call when the data is read and the argument to send */
 unsigned int   **pargument;
-unsigned int   **proutine;
+void          (**proutine)(void *);
 
 /* VME memory Short Address Space is set up in gta_init */
 
@@ -315,7 +316,7 @@ static void ai566_intr(void *p)
  *
  * intialize the xycom 566 analog input card
  */
-static long ai_xy566_init(
+static long ai_xy566_init_cards(
     ai566Regs_t   ***pppcards_present,  /* Wow, this is kludgey.... */
     unsigned int     base_addr,
     short            num_channels,
@@ -331,109 +332,113 @@ static long ai_xy566_init(
    ai566Regs_t **ppcards_present;
    short       **ppmem_present;
 
-   *pppcards_present = (ai566Regs_t **)callocMustSucceed(num_cards, sizeof(**pppcards_present), "XY566: Can't allocate memory");
+if(num_cards > 0) {  /* Don't do any of this if we don't have any cards! */
 
-   *pppmem_present = (short **)callocMustSucceed(num_cards, sizeof(**pppmem_present), "XY566: Can't allocate memory");
+      *pppcards_present = (ai566Regs_t **)callocMustSucceed(num_cards, sizeof(**pppcards_present), "XY566: Can't allocate memory");
 
-   ppcards_present = *pppcards_present;
-   ppmem_present = *pppmem_present;
+      *pppmem_present = (short **)callocMustSucceed(num_cards, sizeof(**pppmem_present), "XY566: Can't allocate memory");
 
-   /* map the io cards into contiguous short address space */
-   status = devRegisterAddress("drvXy566regs", atVMEA16, base_addr, num_cards * sizeof(ai566Regs_t), (volatile void **)&pai566);
-   if(status != OK){
-      errlogPrintf("%s: failed to map XY566 A16 base addr A16=%x\n", __FILE__, base_addr);
-      return ERROR;
-   }
+      ppcards_present = *pppcards_present;
+      ppmem_present = *pppmem_present;
 
-   /* map the io cards into contiguous standard address space */
-   /*status = sysBusToLocalAdrs(VME_AM_STD_SUP_DATA,(char *)paimem, (char **)&pai566io);*/
-   status = devRegisterAddress("drvXy566mem", atVMEA24, paimem, num_cards * XY566_MEM_INCR,  (volatile void **)&pai566io);
-   if(status != OK){
-      errlogPrintf( "%s: failed to map XY566 A24 base addr A24=%x\n",  __FILE__, paimem);
-      return ERROR;
-   }
-
-
-   /* mark each card present into the card present array */
-   for (i = 0; i < num_cards; i++, pai566++, ppcards_present++, pai566io+=XY566_MEM_INCR,ppmem_present++) {
-      if(devReadProbe(sizeof(short), pai566, &shval) != OK) {
-         *ppcards_present = 0;
-         continue;
-      }
-      if(devReadProbe(sizeof(short), pai566io, &shval) != OK) {
-         *ppcards_present = 0;
-         continue;
+      /* map the io cards into contiguous short address space */
+      status = devRegisterAddress("drvXy566regs", atVMEA16, base_addr, num_cards * sizeof(ai566Regs_t), (volatile void **)&pai566);
+      if(status != OK){
+         errlogPrintf("%s: failed to map XY566 A16 base addr A16=%x\n", __FILE__, base_addr);
+         return ERROR;
       }
 
-      *ppcards_present = pai566;
-      *ppmem_present = (short *)pai566io;
-
-      /* reset the Xycom 566 board */
-      senw(&pai566->a566_csr,0x00);      /* off seq control */
-      senw(&pai566->a566_csr,XY_SOFTRESET);   /* reset */
-      senw(&pai566->a566_csr,XY_LED);      /* reset off,red off,green on */
-
-      /* Am9513 commands */
-      /* initialize the Am9513 chip on the XY566 */
-      senw(&pai566->stc_control,0xffff);   /* master reset */
-      senw(&pai566->stc_control,0xff5f);   /* disarm all counters */
-      senw(&pai566->stc_control,0xffef);   /* 16 bit mode */
-
-      /* master mode register */
-      senw(&pai566->stc_control,0xff17);   /* select master mode reg */
-      senw(&pai566->stc_data,0x2200);      /* 16 bit, divide by 4 */
-
-      /* counter two is used to set the time between sequences */
-      senw(&pai566->stc_control,0xff02);   /* sel counter 2 */
-      senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
-      senw(&pai566->stc_control,0xffea);   /* TC output high */
-
-      /* counter four is used as time between sequence elements */
-      senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
-      senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
-      senw(&pai566->stc_control,0xffec);   /* TC output high */
-
-      /* counter five is used as an event counter */
-      senw(&pai566->stc_control,0xff05);   /* sel counter 5 */
-      senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
-      senw(&pai566->stc_control,0xffed);   /* TC output high */
-
-      /* set time between sequences */
-      senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
-      senw(&pai566->stc_data,0x9525);      /* see Am9513A manual */
-      senw(&pai566->stc_data,0x0014);      /* downcount value */
-      senw(&pai566->stc_control,0xff68);   /* load & arm cntr 4 */
-
-      senw(&pai566->stc_control,0xff05);   /* sel counter 4 */
-      senw(&pai566->stc_data,0x97ad);      /* see Am9513A manual */
-      senw(&pai566->stc_data,0x0100);      /* downcount value */
-      senw(&pai566->stc_control,0xff70);   /* load & arm cntr 4 */
-      /* end of the Am9513 commands */
-
-      /* for each channel set gain and place into the scan list */
-      for (n=0; n < num_channels; n++) {
-         senb((&pai566->gram_base + n*2),0); /* gain == 1 */
-         /* end of sequnce = 0x80 | channel */
-         /* stop           = 0x40 | channel */
-         senb((&pai566->sram_base+n*2),(n==num_channels-1)? n|0x80:n);
+      /* map the io cards into contiguous standard address space */
+      /*status = sysBusToLocalAdrs(VME_AM_STD_SUP_DATA,(char *)paimem, (char **)&pai566io);*/
+      status = devRegisterAddress("drvXy566mem", atVMEA24, paimem, num_cards * XY566_MEM_INCR,  (volatile void **)&pai566io);
+      if(status != OK){
+         errlogPrintf( "%s: failed to map XY566 A24 base addr A24=%x\n",  __FILE__, paimem);
+         return ERROR;
       }
-      senw(&pai566->dram_ptr, 0);      /* data ram at 0 */
-      senb(&pai566->sram_ptr, 0);      /* seq ram also at 0 */
 
-        /* set the Xycom 566 board */
-        /* reset the counter interrupt                              0x8000 */
-        /* reset the sequence interrupt                             0x2000 */
-        /* reset the trigger clock interrupt                        0x0800 */
-        /* enable the sequence controller                           0x0100 */
-        /* read values into first 32 words on each read             0x0040 */
-        /* read in sequential mode  (bit 0x0020 == 0)               0x0000 */
-        /* leds green-on red-off                                    0x0003 */
-      senw(&pai566->a566_csr,0xa943 );   /* init csr */
 
-      /* latch in the first bunch of data and start continuous scan */
-      senb(&pai566->soft_start,0);
-   } 
+epicsPrintf("ai_xy566_init_cards(): number of cards = %d\n", num_cards);
+      /* mark each card present into the card present array */
+      for (i = 0; i < num_cards; i++, pai566++, ppcards_present++, pai566io+=XY566_MEM_INCR,ppmem_present++) {
+         if(devReadProbe(sizeof(short), pai566, &shval) != OK) {
+            *ppcards_present = 0;
+            continue;
+         }
+         if(devReadProbe(sizeof(short), pai566io, &shval) != OK) {
+            *ppcards_present = 0;
+            continue;
+         }
+epicsPrintf("ai_xy566_init_cards(): card %d, regaddr %p, ramaddr %p\n", i, pai566, pai566io);
 
+         *ppcards_present = pai566;
+         *ppmem_present = (short *)pai566io;
+
+         /* reset the Xycom 566 board */
+         senw(&pai566->a566_csr,0x00);           /* off seq control */
+         senw(&pai566->a566_csr,XY_SOFTRESET);   /* reset */
+         senw(&pai566->a566_csr,XY_LED);         /* reset off,red off,green on */
+
+         /* Am9513 commands */
+         /* initialize the Am9513 chip on the XY566 */
+         senw(&pai566->stc_control,0xffff);   /* master reset */
+         senw(&pai566->stc_control,0xff5f);   /* disarm all counters */
+         senw(&pai566->stc_control,0xffef);   /* 16 bit mode */
+
+         /* master mode register */
+         senw(&pai566->stc_control,0xff17);   /* select master mode reg */
+         senw(&pai566->stc_data,0x2200);      /* 16 bit, divide by 4 */
+
+         /* counter two is used to set the time between sequences */
+         senw(&pai566->stc_control,0xff02);   /* sel counter 2 */
+         senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
+         senw(&pai566->stc_control,0xffea);   /* TC output high */
+
+         /* counter four is used as time between sequence elements */
+         senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
+         senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
+         senw(&pai566->stc_control,0xffec);   /* TC output high */
+
+         /* counter five is used as an event counter */
+         senw(&pai566->stc_control,0xff05);   /* sel counter 5 */
+         senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
+         senw(&pai566->stc_control,0xffed);   /* TC output high */
+
+         /* set time between sequences */
+         senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
+         senw(&pai566->stc_data,0x9525);      /* see Am9513A manual */
+         senw(&pai566->stc_data,0x0014);      /* downcount value */
+         senw(&pai566->stc_control,0xff68);   /* load & arm cntr 4 */
+
+         senw(&pai566->stc_control,0xff05);   /* sel counter 4 */
+         senw(&pai566->stc_data,0x97ad);      /* see Am9513A manual */
+         senw(&pai566->stc_data,0x0100);      /* downcount value */
+         senw(&pai566->stc_control,0xff70);   /* load & arm cntr 4 */
+         /* end of the Am9513 commands */
+
+         /* for each channel set gain and place into the scan list */
+         for (n=0; n < num_channels; n++) {
+            senb((&pai566->gram_base + n*2),0); /* gain == 1 */
+            /* end of sequnce = 0x80 | channel */
+            /* stop           = 0x40 | channel */
+            senb((&pai566->sram_base+n*2),(n==num_channels-1)? n|0x80:n);
+         }
+         senw(&pai566->dram_ptr, 0);      /* data ram at 0 */
+         senb(&pai566->sram_ptr, 0);      /* seq ram also at 0 */
+
+           /* set the Xycom 566 board */
+           /* reset the counter interrupt                              0x8000 */
+           /* reset the sequence interrupt                             0x2000 */
+           /* reset the trigger clock interrupt                        0x0800 */
+           /* enable the sequence controller                           0x0100 */
+           /* read values into first 32 words on each read             0x0040 */
+           /* read in sequential mode  (bit 0x0020 == 0)               0x0000 */
+           /* leds green-on red-off                                    0x0003 */
+         senw(&pai566->a566_csr,0xa943 );   /* init csr */
+
+         /* latch in the first bunch of data and start continuous scan */
+         senb(&pai566->soft_start,0);
+      } 
+   } /* if(num_cards > 0) */
    return OK;
 } 
 
@@ -442,13 +447,13 @@ static long ai_xy566_init(
  *
  * intialize the xycom 566 latched analog input card
  */
-static long ai_xy566l_init(
+static long ai_xy566l_init_cards(
    ai566Regs_t   ***pppcards_present,
    unsigned int     base_addr,
    short            num_channels,
    short            num_cards,
    unsigned int     paimem,
-   short         ***pppmem_present
+   unsigned short ***pppmem_present
 ) {
    short            shval;
    short            i,n;
@@ -456,7 +461,7 @@ static long ai_xy566l_init(
    char            *pai566io;   /* mem loc of I/O buffer */
    int              status;
    ai566Regs_t    **ppcards_present;
-   short          **ppmem_present;
+   unsigned short **ppmem_present;
 
    *pppcards_present = (ai566Regs_t **) callocMustSucceed(num_cards, sizeof(**pppcards_present), "XY566: Can't allocate memory");
 
@@ -468,7 +473,7 @@ static long ai_xy566l_init(
    }
    
 
-   *pppmem_present = (short **)callocMustSucceed(num_cards, sizeof(**pppmem_present), "XY566: Can't allocate memory");
+   *pppmem_present = (unsigned short **)callocMustSucceed(num_cards, sizeof(**pppmem_present), "XY566: Can't allocate memory");
 
    ppcards_present = *pppcards_present;
    ppmem_present = *pppmem_present;
@@ -512,7 +517,7 @@ static long ai_xy566l_init(
       }
          
       *ppcards_present = pai566;
-      *ppmem_present = (short *)pai566io;
+      *ppmem_present = (unsigned short *)pai566io;
 
       /* put the card number in the dual ported memory */
       senb(&pai566->card_number,i);
@@ -596,25 +601,25 @@ static long ai_xy566l_init(
 
 
 /*
- *   ai_566_init ()
+ *   ai_xy566_init ()
  *
  *   Initialize all VME analog input cards
  */
 
-static long ai_566_init(void)
+static long ai_xy566_init(void)
 {
    /* intialize the Xycom 566 Unipolar Single Ended Analog Inputs */
-   ai_xy566_init(&pai_xy566se,ai_addrs[XY566SE],ai_num_channels[XY566SE],
+   ai_xy566_init_cards(&pai_xy566se,ai_addrs[XY566SE],ai_num_channels[XY566SE],
            ai_num_cards[XY566SE],ai_memaddrs[XY566SE],(short ***)&pai_xy566se_mem); 
 
    /* intialize the Xycom 566 Unipolar Differential Analog Inputs */
-   ai_xy566_init(&pai_xy566di,ai_addrs[XY566DI],ai_num_channels[XY566DI],
+   ai_xy566_init_cards(&pai_xy566di,ai_addrs[XY566DI],ai_num_channels[XY566DI],
       ai_num_cards[XY566DI],ai_memaddrs[XY566DI],(short ***)&pai_xy566di_mem); 
 
 
    /* intialize the Xycom 566 Unipolar Differential Analog Inputs Latched */
-   ai_xy566l_init(&pai_xy566dil,ai_addrs[XY566DIL],ai_num_channels[XY566DIL],
-      ai_num_cards[XY566DIL],ai_memaddrs[XY566DIL],(short ***)&pai_xy566dil_mem); 
+   ai_xy566l_init_cards(&pai_xy566dil,ai_addrs[XY566DIL],ai_num_channels[XY566DIL],
+      ai_num_cards[XY566DIL],ai_memaddrs[XY566DIL],(unsigned short ***)&pai_xy566dil_mem); 
 
    return (0);
 }
@@ -836,8 +841,8 @@ static void xy566_rval_report(short card, short type)
  */
 int xy566_driver(
     unsigned short slot,
-    unsigned int   *pcbroutine,
-    unsigned int   *parg  /* number of values read */
+    void   (*pcbroutine)(void*),
+    void   *parg  /* number of values read */
 ) {
    register ai566Regs_t *pwf566;
    register wf085Regs_t *pwf085;
@@ -851,7 +856,7 @@ int xy566_driver(
          return(-1);
 
    /* armed already by someone else */
-   if (proutine[slot] != 0)
+   if (proutine[slot] != NULL)
       return(-2);   /* by someone else */
 
    /* set the Xycom 566 board */
@@ -877,7 +882,7 @@ int xy566_driver(
  */
 static void xy566DoneTask(void *parm)
 {
-   unsigned int       **pproutines;
+   void               (**pproutines)(void *);
    unsigned int       (*pcbroutine)();
    short              i;
 
@@ -915,7 +920,7 @@ static void xy566DoneTask(void *parm)
  *
  * intialize the xycom 566 waveform input card
  */
-static long xy566_init(void)
+static long wf_xy566_init(void)
 {
    ai566Regs_t   **pcards_present = pwf_xy566;
    wf085Regs_t   **parms_present = pwf_xy085;
@@ -934,7 +939,7 @@ static long xy566_init(void)
 
    pargument = (unsigned int **)callocMustSucceed(wf_num_cards[XY566WF], sizeof(*pargument), "XY566: Can't allocate memory");
 
-   proutine = (unsigned int **)callocMustSucceed(wf_num_cards[XY566WF], sizeof(*proutine), "XY566: Can't allocate memory");
+   proutine = (void *)callocMustSucceed(wf_num_cards[XY566WF], sizeof(*proutine), "XY566: Can't allocate memory");
 
    pcards_present = pwf_xy566;
    parms_present = pwf_xy085;
@@ -1110,7 +1115,7 @@ static long xy566_init(void)
  * XY566_IO_REPORT
  *
  */
-static long xy566_io_report(int level)
+static long wf_xy566_io_report(int level)
 {
    int i;
 
@@ -1166,3 +1171,82 @@ int xy566WFConfig(unsigned int ncards, unsigned int nchannels,
     return 0;
 }
 
+
+/* make xy566SEConfig() available to the ioc shell */
+static const iocshArg xy566SEConfigArg0 = {"number of cards",                iocshArgInt};
+static const iocshArg xy566SEConfigArg1 = {"number of channels",             iocshArgInt};
+static const iocshArg xy566SEConfigArg2 = {"VME A16 registers base address", iocshArgInt};
+static const iocshArg xy566SEConfigArg3 = {"VME A24 memory base address",    iocshArgInt};
+static const iocshArg *xy566SEConfigArgs[] = {
+          &xy566SEConfigArg0, &xy566SEConfigArg1, &xy566SEConfigArg2, &xy566SEConfigArg3};
+static const iocshFuncDef xy566SEConfigFuncDef = 
+          {"xy566SEConfig", 4, xy566SEConfigArgs};
+static void xy566SEConfigCallFunc(const iocshArgBuf *args)
+{
+   xy566SEConfig(args[0].ival, args[1].ival,args[2].ival,args[3].ival); 
+}
+
+
+/* make xy566DIConfig() available to the ioc shell */
+static const iocshArg xy566DIConfigArg0 = {"number of cards",                iocshArgInt};
+static const iocshArg xy566DIConfigArg1 = {"number of channels",             iocshArgInt};
+static const iocshArg xy566DIConfigArg2 = {"VME A16 registers base address", iocshArgInt};
+static const iocshArg xy566DIConfigArg3 = {"VME A24 memory base address",    iocshArgInt};
+static const iocshArg *xy566DIConfigArgs[] = {
+          &xy566DIConfigArg0, &xy566DIConfigArg1, &xy566DIConfigArg2, &xy566DIConfigArg3};
+static const iocshFuncDef xy566DIConfigFuncDef = 
+          {"xy566DIConfig", 4, xy566DIConfigArgs};
+static void xy566DIConfigCallFunc(const iocshArgBuf *args)
+{
+   xy566DIConfig(args[0].ival, args[1].ival,args[2].ival,args[3].ival); 
+}
+
+
+/* make xy566DILConfig() available to the ioc shell */
+static const iocshArg xy566DILConfigArg0 = {"number of cards",                iocshArgInt};
+static const iocshArg xy566DILConfigArg1 = {"number of channels",             iocshArgInt};
+static const iocshArg xy566DILConfigArg2 = {"VME A16 registers base address", iocshArgInt};
+static const iocshArg xy566DILConfigArg3 = {"VME A24 memory base address",    iocshArgInt};
+static const iocshArg *xy566DILConfigArgs[] = {
+          &xy566DILConfigArg0, &xy566DILConfigArg1, &xy566DILConfigArg2, &xy566DILConfigArg3};
+static const iocshFuncDef xy566DILConfigFuncDef = 
+          {"xy566DILConfig", 4, xy566DILConfigArgs};
+static void xy566DILConfigCallFunc(const iocshArgBuf *args)
+{
+   xy566DILConfig(args[0].ival, args[1].ival,args[2].ival,args[3].ival); 
+}
+
+
+/* make xy566WFConfig() available to the ioc shell */
+static const iocshArg xy566WFConfigArg0 = {"number of cards",                iocshArgInt};
+static const iocshArg xy566WFConfigArg1 = {"number of channels",             iocshArgInt};
+static const iocshArg xy566WFConfigArg2 = {"VME A16 registers base address", iocshArgInt};
+static const iocshArg xy566WFConfigArg3 = {"VME A24 memory base address",    iocshArgInt};
+static const iocshArg xy566WFConfigArg4 = {"arm address",                    iocshArgInt};
+static const iocshArg xy566WFConfigArg5 = {"interrupt vector",               iocshArgInt};
+static const iocshArg *xy566WFConfigArgs[] = {
+          &xy566WFConfigArg0, &xy566WFConfigArg1, 
+          &xy566WFConfigArg2, &xy566WFConfigArg3,
+          &xy566WFConfigArg4, &xy566WFConfigArg5};
+static const iocshFuncDef xy566WFConfigFuncDef = 
+          {"xy566WFConfig", 6, xy566WFConfigArgs};
+static void xy566WFConfigCallFunc(const iocshArgBuf *args)
+{
+   xy566WFConfig(args[0].ival, args[1].ival,args[2].ival,
+                 args[3].ival, args[4].ival,args[5].ival); 
+}
+
+
+ static void
+ xy566RegisterCommands(void)
+ {
+     static int firstTime = 1;
+     if (firstTime) {
+         iocshRegister(&xy566SEConfigFuncDef, xy566SEConfigCallFunc);
+         iocshRegister(&xy566DIConfigFuncDef, xy566DIConfigCallFunc);
+         iocshRegister(&xy566DILConfigFuncDef,xy566DILConfigCallFunc);
+         iocshRegister(&xy566WFConfigFuncDef, xy566WFConfigCallFunc);
+         firstTime = 0;
+     }
+ }
+ epicsExportRegistrar(xy566RegisterCommands);

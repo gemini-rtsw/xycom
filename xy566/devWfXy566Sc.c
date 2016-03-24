@@ -66,12 +66,13 @@ struct {
 epicsExportAddress(dset,devWfXy566Sc);
 
 
-static void myCallback(struct waveformRecord *pwf, int no_read, unsigned char *pdata)
+static int myCallback(struct waveformRecord *pwf, int no_read, unsigned char *pdata)
 {
    struct rset *prset=(struct rset *)(pwf->rset);
    short ftvl = pwf->ftvl;
 
-   if(!pwf->busy) return;
+   if(!pwf->busy) return -1;
+
    dbScanLock((struct dbCommon *)pwf);
    pwf->busy = FALSE;
    if(ftvl==DBF_SHORT || ftvl==DBF_USHORT) {
@@ -84,6 +85,7 @@ static void myCallback(struct waveformRecord *pwf, int no_read, unsigned char *p
    }
    (*prset->process)(pwf);
    dbScanUnlock((struct dbCommon *)pwf);
+   return 0;
 }
 
 static long init_record(struct waveformRecord *pwf)
@@ -119,7 +121,7 @@ static long arm_wf(struct waveformRecord *pwf)
    struct vmeio *pvmeio = (struct vmeio *)&(pwf->inp.value);
 
    pwf->busy = TRUE;
-   if(xy566_driver(pvmeio->card,myCallback,pwf)<0) {
+   if(xy566_driver(pvmeio->card,(void *)myCallback,pwf)<0) {
       recGblSetSevr(pwf,READ_ALARM,INVALID_ALARM);
       pwf->busy = FALSE;
       return(0);

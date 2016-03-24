@@ -24,6 +24,6 @@ int ai_xy566_driver(
 );
 int xy566_driver(
     unsigned short slot,
-    unsigned int   *pcbroutine,
-    unsigned int   *parg  /* number of values read */
+    void   (*pcbroutine)(void *),
+    void   *parg  /* number of values read */
 );
