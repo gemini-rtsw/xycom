@@ -382,7 +382,7 @@ void xy240_bi_io_report(int card)
          xy240_bi_driver(card,masks(k),&kval);
          if (kval != 0) 
             kval = 1;
-         epicsrPrintf("Chan %d = %x\t ",k,kval);
+         epicsPrintf("Chan %d = %x\t ",k,kval);
       }
       if(l < num_chans){
          xy240_bi_driver(card,masks(l),&lval);
