@@ -486,6 +486,8 @@ static void drvXy240ConfigCallFunc(const iocshArgBuf *args )
 }
 
 
+/* this doesn't need to be exported to the shell; it is available via 'dbior'*/
+#if 0
 static const iocshArg xy240_io_reportArg0 = { "level", iocshArgInt };
 static const iocshArg *xy240_io_reportArgs[] = { &xy240_io_reportArg0 };
 static const iocshFuncDef xy240_io_reportFuncDef =
@@ -494,7 +496,7 @@ static void xy240_io_reportCallFunc(const iocshArgBuf *args )
 {
    xy240_io_report(args[0].ival);
 }
-
+#endif
 
 static const iocshArg xy240_dio_outArg0 = { "card", iocshArgInt };
 static const iocshArg xy240_dio_outArg1 = { "port",  iocshArgInt };
@@ -515,7 +517,7 @@ static void drvXy240RegisterCommands(void)
    static int firstTime = 1;
    if (firstTime) {
       iocshRegister(&drvXy240ConfigFuncDef, drvXy240ConfigCallFunc);
-      iocshRegister(&xy240_io_reportFuncDef, xy240_io_reportCallFunc);
+/*      iocshRegister(&xy240_io_reportFuncDef, xy240_io_reportCallFunc); */
       iocshRegister(&xy240_dio_outFuncDef, xy240_dio_outCallFunc);
       firstTime = 0;
    }
