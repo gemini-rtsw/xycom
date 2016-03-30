@@ -165,7 +165,6 @@ static long write_bo(struct boRecord	*pbo)
 static long init_mbbi(struct mbbiRecord	*pmbbi)
 {
 
-epicsPrintf("Before shift: MBBI mask= 0x%x\n", pmbbi->mask);
     /* mbbi.inp must be an VME_IO */
     switch (pmbbi->inp.type) {
     case (VME_IO) :
@@ -177,7 +176,6 @@ epicsPrintf("Before shift: MBBI mask= 0x%x\n", pmbbi->mask);
 		"devMbbiXy240 (init_record) Illegal INP field");
 	return(S_db_badField);
     }
-epicsPrintf("After shift: MBBI mask= 0x%x\n", pmbbi->mask);
     return(0);
 }
 

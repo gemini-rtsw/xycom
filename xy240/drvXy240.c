@@ -141,7 +141,7 @@ static int dio_scan()
                   || ((dio[i].dptr->port2_3) ^ (dio[i].sport2_3))
                   || first_scan) 
             {
-               printf("io_scanner_wakeup for card no %d\n",i);
+               /* epicsPrintf("io_scanner_wakeup for card no %d\n",i); */
                scanIoRequest(dio[i].ioscanpvt);
                dio[i].sport0_1 = dio[i].dptr->port0_1;
                dio[i].sport2_3 = dio[i].dptr->port2_3;     
@@ -263,7 +263,6 @@ long xy240_bo_read(short card, epicsUInt32 mask, epicsUInt32 *prval)
       return -1;
    }
 
-   /* printf("%d\n",dio[card].num); */
    work = (dio[card].dptr->port4_5 << 16) + dio[card].dptr->port6_7;
 
    *prval = work &= mask;
@@ -307,17 +306,17 @@ int xy240_dio_out(short card,short port, unsigned short val)
    unsigned short work[2];
 
    if ((card > XY240_MAX_CARDS-1)) {      /*test to see if card# is allowable*/
-      printf("card # out of range\n");
+      epicsPrintf("card # out of range\n");
       return -1;
    }
 
    if (!dio[card].dptr) {            /*see if card exists*/
-      printf("can't find card %d\n", card);
+      epicsPrintf("can't find card %d\n", card);
       return -2;
    }
 
    if ((port >7) || (port <4)) {     /*make sure they're output ports*/
-      printf("use ports 4-7\n");
+      epicsPrintf("use ports 4-7\n");
       return -3;
    }
 
@@ -367,8 +366,7 @@ void xy240_bi_io_report(int card)
       return;
    }
 
-   epicsPrintf("Size of register array: %d\n", sizeof(xy240Regs_t));
-   printf("\tXY240 BINARY IN CHANNELS:\n");
+   epicsPrintf("\tXY240 BINARY IN CHANNELS:\n");
    for(   j=0,k=1,l=2,m=3;
          j < num_chans && k < num_chans && l< num_chans && m < num_chans; 
          j+=IOR_MAX_COLS,k+= IOR_MAX_COLS,l+= IOR_MAX_COLS, m += IOR_MAX_COLS){
@@ -378,25 +376,25 @@ void xy240_bi_io_report(int card)
          xy240_bi_driver(card,masks(j),&jval);
          if (jval != 0) 
             jval = 1;
-         printf("\tChan %d = %x\t ",j,jval);
+         epicsPrintf("\tChan %d = %x\t ",j,jval);
       }
       if(k < num_chans){
          xy240_bi_driver(card,masks(k),&kval);
          if (kval != 0) 
             kval = 1;
-         printf("Chan %d = %x\t ",k,kval);
+         epicsrPrintf("Chan %d = %x\t ",k,kval);
       }
       if(l < num_chans){
          xy240_bi_driver(card,masks(l),&lval);
          if (lval != 0) 
             lval = 1;
-         printf("Chan %d = %x \t",l,lval);
+         epicsPrintf("Chan %d = %x \t",l,lval);
       }
       if(m < num_chans){
          xy240_bi_driver(card,masks(m),&mval);
          if (mval != 0) 
             mval = 1;
-         printf("Chan %d = %x \n",m,mval);
+         epicsPrintf("Chan %d = %x \n",m,mval);
       }
    }
 }
@@ -413,7 +411,7 @@ void xy240_bo_io_report(int card)
       return;
    }
 
-   printf("\tXY240 BINARY OUT CHANNELS:\n");
+   epicsPrintf("\tXY240 BINARY OUT CHANNELS:\n");
 
    for(   j=0,k=1,l=2,m=3;
          j < num_chans && k < num_chans && l < num_chans && m < num_chans; 
@@ -423,25 +421,25 @@ void xy240_bo_io_report(int card)
          xy240_bo_read(card,masks(j),&jval);
          if (jval != 0) 
             jval = 1; 
-         printf("\tChan %d = %x\t ",j,jval);
+         epicsPrintf("\tChan %d = %x\t ",j,jval);
       }
       if(k < num_chans){
          xy240_bo_read(card,masks(k),&kval);
          if (kval != 0) 
             kval = 1; 
-         printf("Chan %d = %x\t ",k,kval);
+         epicsPrintf("Chan %d = %x\t ",k,kval);
       }
       if(l < num_chans){
          xy240_bo_read(card,masks(l),&lval);
          if (lval != 0) 
             lval = 1; 
-         printf("Chan %d = %x \t",l,lval);
+         epicsPrintf("Chan %d = %x \t",l,lval);
       }
       if(m < num_chans){
          xy240_bo_read(card,masks(m),&mval);
          if (mval != 0) 
             mval = 1; 
-         printf("Chan %d = %x \n",m,mval);
+         epicsPrintf("Chan %d = %x \n",m,mval);
       }
    }
 }
@@ -454,7 +452,7 @@ long xy240_io_report(int level)
    for (card = 0; card < XY240_MAX_CARDS; card++){
 
       if(dio[card].dptr){
-         printf("B*: XY240:\tcard %d\n",card);
+         epicsPrintf("B*: XY240:\tcard %d\n",card);
          if (level >= 1){
             xy240_bi_io_report(card);
             xy240_bo_io_report(card);
