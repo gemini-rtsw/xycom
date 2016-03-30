@@ -154,7 +154,7 @@ epicsExportAddress(drvet,drvXy566);
 static long xy566_init(void)
 {
     ai_xy566_init();
-    wf_xy566_init();
+    if(wf_num_cards[XY566WF] > 0) wf_xy566_init();
     return(0);
 }
 
@@ -463,139 +463,143 @@ static long ai_xy566l_init_cards(
    ai566Regs_t    **ppcards_present;
    unsigned short **ppmem_present;
 
-   *pppcards_present = (ai566Regs_t **) callocMustSucceed(num_cards, sizeof(**pppcards_present), "XY566: Can't allocate memory");
 
-   paioscanpvt = (IOSCANPVT *)callocMustSucceed(num_cards, sizeof(*paioscanpvt), "XY566: Can't allocate memory");
+
+   if(num_cards > 0) {    /* Don't do any of this if no cards! */
+      *pppcards_present = (ai566Regs_t **) callocMustSucceed(num_cards, sizeof(**pppcards_present), "XY566: Can't allocate memory");
+
+      paioscanpvt = (IOSCANPVT *)callocMustSucceed(num_cards, sizeof(*paioscanpvt), "XY566: Can't allocate memory");
    
-   for(i=0; i<num_cards; i++) {
-      paioscanpvt[i] = NULL;
-      scanIoInit(&paioscanpvt[i]);
-   }
+      for(i=0; i<num_cards; i++) {
+         paioscanpvt[i] = NULL;
+         scanIoInit(&paioscanpvt[i]);
+      }
    
 
-   *pppmem_present = (unsigned short **)callocMustSucceed(num_cards, sizeof(**pppmem_present), "XY566: Can't allocate memory");
+      *pppmem_present = (unsigned short **)callocMustSucceed(num_cards, sizeof(**pppmem_present), "XY566: Can't allocate memory");
 
-   ppcards_present = *pppcards_present;
-   ppmem_present = *pppmem_present;
+      ppcards_present = *pppcards_present;
+      ppmem_present = *pppmem_present;
 
-   /* map the io cards into contiguous  short address space */
-   /* if ((status = sysBusToLocalAdrs(VME_AM_SUP_SHORT_IO,(char *)base_addr, (char **)&pai566)) != OK){ */
-   if((status = devRegisterAddress( "drvXy566lregs", 
-                                     atVMEA16, 
-                                     base_addr, 
-                                     num_cards * sizeof(ai566Regs_t), 
-                                     (volatile void **)&pai566)) != OK )  {
-       errlogPrintf(   "%s: failed to map XY566 (latched) A16 base addr A16=%x\n", __FILE__, base_addr);
-       return ERROR;
-   }
-
-   /* map the io cards into contiguous standard address space */
-   /* if((status = sysBusToLocalAdrs(VME_AM_STD_SUP_DATA,(char *)paimem, (char **)&pai566io)) != OK){ */
-   if((status = devRegisterAddress( "drvXy566lmem", 
-                                     atVMEA24, 
-                                     paimem, 
-                                     num_cards * XY566_MEM_INCR, 
-                                     (volatile void **)&pai566io)) != OK )  {
-      errlogPrintf(   "%s: failed to map XY566 (latched) A24 base addr A24=%x\n",  __FILE__, paimem);
-      return ERROR;
-   }
-
-   epicsAtExit(xy566_reset, (void *)NULL);
-   /* rebootHookAdd(xy566_reset); */
-
-   /* mark each card present into the card present array */
-   for (i=0; i<num_cards; i++, pai566++, ppcards_present++, pai566io+=XY566_MEM_INCR, ppmem_present++){
-
-      if (devReadProbe(sizeof(short), pai566, &shval)) {
-         *ppcards_present = 0;
-         continue;
+      /* map the io cards into contiguous  short address space */
+      /* if ((status = sysBusToLocalAdrs(VME_AM_SUP_SHORT_IO,(char *)base_addr, (char **)&pai566)) != OK){ */
+      if((status = devRegisterAddress( "drvXy566lregs", 
+                                        atVMEA16, 
+                                        base_addr, 
+                                        num_cards * sizeof(ai566Regs_t), 
+                                        (volatile void **)&pai566)) != OK )  {
+          errlogPrintf(   "%s: failed to map XY566 (latched) A16 base addr A16=%x\n", __FILE__, base_addr);
+          return ERROR;
       }
 
-      if (devReadProbe(sizeof(short), pai566io,&shval) != OK){
-         *ppcards_present = 0;
-         continue;
+      /* map the io cards into contiguous standard address space */
+      /* if((status = sysBusToLocalAdrs(VME_AM_STD_SUP_DATA,(char *)paimem, (char **)&pai566io)) != OK){ */
+      if((status = devRegisterAddress( "drvXy566lmem", 
+                                        atVMEA24, 
+                                        paimem, 
+                                        num_cards * XY566_MEM_INCR, 
+                                        (volatile void **)&pai566io)) != OK )  {
+         errlogPrintf(   "%s: failed to map XY566 (latched) A24 base addr A24=%x\n",  __FILE__, paimem);
+         return ERROR;
       }
+
+      epicsAtExit(xy566_reset, (void *)NULL);
+      /* rebootHookAdd(xy566_reset); */
+
+      /* mark each card present into the card present array */
+      for (i=0; i<num_cards; i++, pai566++, ppcards_present++, pai566io+=XY566_MEM_INCR, ppmem_present++){
+
+         if (devReadProbe(sizeof(short), pai566, &shval)) {
+            *ppcards_present = 0;
+            continue;
+         }
+
+         if (devReadProbe(sizeof(short), pai566io,&shval) != OK){
+            *ppcards_present = 0;
+            continue;
+         }
          
-      *ppcards_present = pai566;
-      *ppmem_present = (unsigned short *)pai566io;
+         *ppcards_present = pai566;
+         *ppmem_present = (unsigned short *)pai566io;
 
-      /* put the card number in the dual ported memory */
-      senb(&pai566->card_number,i);
+         /* put the card number in the dual ported memory */
+         senb(&pai566->card_number,i);
 
-      /* set up the interrupt vector */
-      /* taken from the XYCOM-566 Manual. Figure 4-6  Page 4-19 */
-      pai566->int_vect = AI566_VNUM + i;
+         /* set up the interrupt vector */
+         /* taken from the XYCOM-566 Manual. Figure 4-6  Page 4-19 */
+         pai566->int_vect = AI566_VNUM + i;
   
-      /* intConnect(INUM_TO_IVEC(AI566_VNUM + i), ai566_intr, i); */
-      devConnectInterruptVME(AI566_VNUM + i, ai566_intr, &i);
-      devEnableInterruptLevelVME(XY566_INT_LEVEL); 
+         /* intConnect(INUM_TO_IVEC(AI566_VNUM + i), ai566_intr, i); */
+         devConnectInterruptVME(AI566_VNUM + i, ai566_intr, &i);
+         devEnableInterruptLevelVME(XY566_INT_LEVEL); 
 
-      /* reset the Xycom 566 board */
-      senw(&pai566->a566_csr,0x00);      /* off seq control */
-      senw(&pai566->a566_csr,XY_SOFTRESET);   /* reset */
-      senw(&pai566->a566_csr,XY_LED);      /* reset off,red off,green on */
+         /* reset the Xycom 566 board */
+         senw(&pai566->a566_csr,0x00);      /* off seq control */
+         senw(&pai566->a566_csr,XY_SOFTRESET);   /* reset */
+         senw(&pai566->a566_csr,XY_LED);      /* reset off,red off,green on */
 
-      /* Am9513 commands */
-      /* initialize the Am9513 chip on the XY566 */
-      senw(&pai566->stc_control,0xffff);   /* master reset */
-      senw(&pai566->stc_control,0xff5f);   /* disarm all counters */
-      senw(&pai566->stc_control,0xffef);   /* 16 bit mode */
+         /* Am9513 commands */
+         /* initialize the Am9513 chip on the XY566 */
+         senw(&pai566->stc_control,0xffff);   /* master reset */
+         senw(&pai566->stc_control,0xff5f);   /* disarm all counters */
+         senw(&pai566->stc_control,0xffef);   /* 16 bit mode */
 
-      /* master mode register */
-      senw(&pai566->stc_control,0xff17);   /* select master mode reg */
-      senw(&pai566->stc_data,0x2200);      /* 16 bit, divide by 4 */
+         /* master mode register */
+         senw(&pai566->stc_control,0xff17);   /* select master mode reg */
+         senw(&pai566->stc_data,0x2200);      /* 16 bit, divide by 4 */
 
-      /* counter two is used to set the time between sequences */
-      senw(&pai566->stc_control,0xff02);   /*sel counter 2 */
-      senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
-      senw(&pai566->stc_control,0xffea);   /* TC output high */
+         /* counter two is used to set the time between sequences */
+         senw(&pai566->stc_control,0xff02);   /*sel counter 2 */
+         senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
+         senw(&pai566->stc_control,0xffea);   /* TC output high */
 
-      /* counter four is used as time between sequence elements */
-      senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
-      senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
-      senw(&pai566->stc_control,0xffec);   /* TC output high */
+         /* counter four is used as time between sequence elements */
+         senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
+         senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
+         senw(&pai566->stc_control,0xffec);   /* TC output high */
 
-      /* counter five is used as an event counter */
-      senw(&pai566->stc_control,0xff05);   /* sel counter 5 */
-      senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
-      senw(&pai566->stc_control,0xffed);   /* TC output high */
+         /* counter five is used as an event counter */
+         senw(&pai566->stc_control,0xff05);   /* sel counter 5 */
+         senw(&pai566->stc_data,0x0b02);      /* TC toggle mode */
+         senw(&pai566->stc_control,0xffed);   /* TC output high */
 
-      /* set time between sequences */
-      senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
-      senw(&pai566->stc_data,0x9525);      /* see Am9513A manual */
-      senw(&pai566->stc_data,0x0014);      /* downcount value */
-      senw(&pai566->stc_control,0xff68);   /* load & arm cntr 4 */
+         /* set time between sequences */
+         senw(&pai566->stc_control,0xff04);   /* sel counter 4 */
+         senw(&pai566->stc_data,0x9525);      /* see Am9513A manual */
+         senw(&pai566->stc_data,0x0014);      /* downcount value */
+         senw(&pai566->stc_control,0xff68);   /* load & arm cntr 4 */
 
-      senw(&pai566->stc_control,0xff05);   /* sel counter 4 */
-      senw(&pai566->stc_data,0x97ad);      /* see Am9513A manual */
-      senw(&pai566->stc_data,0x0100);      /* downcount value */
-      senw(&pai566->stc_control,0xff70);   /* load & arm cntr 4 */
-      /* end of the Am9513 commands */
+         senw(&pai566->stc_control,0xff05);   /* sel counter 4 */
+         senw(&pai566->stc_data,0x97ad);      /* see Am9513A manual */
+         senw(&pai566->stc_data,0x0100);      /* downcount value */
+         senw(&pai566->stc_control,0xff70);   /* load & arm cntr 4 */
+         /* end of the Am9513 commands */
 
-      /* for each channel set gain and place into the scan list */
-      for (n=0; n < num_channels; n++) {
-         senb((&pai566->gram_base + n*2), 0); /* gain == 1 */
+         /* for each channel set gain and place into the scan list */
+         for (n=0; n < num_channels; n++) {
+            senb((&pai566->gram_base + n*2), 0); /* gain == 1 */
 
-         /* end of sequnce = 0x80 | channel */
-         /* stop           = 0x40 | channel */
-         /* interrupt      = 0x20 | channel */
-         senb((&pai566->sram_base+n*2),(n==num_channels-1)? n|0xe0:n);
-      }
-      senw(&pai566->dram_ptr,0);      /* data ram at 0 */
-      senb(&pai566->sram_ptr,0);      /* seq ram also at 0 */
+            /* end of sequnce = 0x80 | channel */
+            /* stop           = 0x40 | channel */
+            /* interrupt      = 0x20 | channel */
+            senb((&pai566->sram_base+n*2),(n==num_channels-1)? n|0xe0:n);
+         }
+         senw(&pai566->dram_ptr,0);      /* data ram at 0 */
+         senb(&pai566->sram_ptr,0);      /* seq ram also at 0 */
 
                /* initialize the control status register */
-      /* reset the sequence interrupt                             0x2000 */
-      /* enable the sequence interrupt                            0x1000 */
-      /* reset the trigger clock interrupt                        0x0800 */
-      /* enable the sequence controller                           0x0100 */
-      /* read values into first 32 words on each read             0x0040 */
-      /* read in sequential mode  (bit 0x0020 == 0)               0x0000 */
-      /* interrupt enable                                         0x0008 */
-      /* leds green-on red-off                                    0x0003 */
-      senw(&pai566->a566_csr,XY566L_CSR);
+         /* reset the sequence interrupt                             0x2000 */
+         /* enable the sequence interrupt                            0x1000 */
+         /* reset the trigger clock interrupt                        0x0800 */
+         /* enable the sequence controller                           0x0100 */
+         /* read values into first 32 words on each read             0x0040 */
+         /* read in sequential mode  (bit 0x0020 == 0)               0x0000 */
+         /* interrupt enable                                         0x0008 */
+         /* leds green-on red-off                                    0x0003 */
+         senw(&pai566->a566_csr,XY566L_CSR);
+      }
 
-   }
+   } /* if (num_cards > 0) */
    return OK;
 }
 
