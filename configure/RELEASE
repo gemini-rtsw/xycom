@@ -1,7 +1,0 @@
-#RELEASE Location of external products
-#Macro substitution is not allowed in the location defintions
-
-# You should do a "gnumake clean uninstall install" in the application
-# top directory each time changes are made to this file
-
-EPICS_BASE=/gem_sw/epics/R3.14.12.4/base
