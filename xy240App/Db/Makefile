@@ -17,6 +17,6 @@ DB += xycom240Test.db
 include $(TOP)/configure/RULES
 #----------------------------------------
 #  ADD RULES AFTER THIS LINE
-$(COMMON_DIR)/%.db: %.db
-	cp $< $@
+#$(COMMON_DIR)/%.db: %.db
+#	cp $< $@
 
