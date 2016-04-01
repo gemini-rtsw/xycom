@@ -12,14 +12,14 @@ w 523 915 100 0 n#6 hwin.hwin#71.in 520 912 520 912 ebis.s25bi.INP
 use ebos -104 606 100 0 s0bo
 xform 0 -104 696
 p -179 782 100 0 1 DTYP:XYCOM-240
-p -132 606 100 0 -1 PV:x:
+p -188 606 100 0 -1 PV:xy240:
 use hwout 24 648 100 0 hwout#51
 xform 0 120 664
 p 120 655 100 0 -1 val(outp):#C0 S0
 use ebos -109 371 100 0 s1bo
 xform 0 -104 464
 p -179 550 100 0 1 DTYP:XYCOM-240
-p -137 371 100 0 -1 PV:x:
+p -193 371 100 0 -1 PV:xy240:
 use hwout 24 416 100 0 hwout#59
 xform 0 120 432
 p 120 423 100 0 -1 val(outp):#C0 S1
@@ -35,7 +35,7 @@ p 1103 611 100 0 1 ZRST:FAULT(HIGH) (0,0)
 p 1103 579 100 0 1 ONST:DISASSERTED (0,1)
 p 1106 546 100 0 1 TWST:ASSERTED (1,0)
 p 1105 515 100 0 1 THST:FAULT(LOW) (1,1)
-p 764 497 100 0 -1 PV:x:
+p 708 497 100 0 -1 PV:xy240:
 p 1093 652 100 0 1 NOBT:2
 p 766 536 100 0 1 PINI:YES
 use hwin 320 592 100 0 hwin#63
@@ -43,7 +43,7 @@ xform 0 416 608
 p 332 601 100 0 -1 val(in):#C0 S24
 use ebis 659 985 100 0 s24bi
 xform 0 648 1072
-p 631 985 100 0 -1 PV:x:
+p 575 985 100 0 -1 PV:xy240:
 p 296 974 100 0 0 PINI:YES
 p 555 1137 100 0 1 DTYP:XYCOM-240
 p 799 1064 100 0 1 SCAN:I/O Intr
@@ -54,7 +54,7 @@ xform 0 424 1104
 p 331 1096 100 0 -1 val(in):#C0 S24
 use embbos -119 863 100 0 s0mbbo
 xform 0 -120 952
-p -147 863 100 0 -1 PV:x:
+p -203 863 100 0 -1 PV:xy240:
 p -498 1020 100 0 1 NOBT:2
 p -462 963 100 0 1 ONST:(0,1)
 p -538 965 100 0 1 ONVL:1
@@ -70,7 +70,7 @@ xform 0 104 952
 p 104 943 100 0 -1 val(outp):#C0 S0
 use ebis 659 793 100 0 s25bi
 xform 0 648 880
-p 631 793 100 0 -1 PV:x:
+p 575 793 100 0 -1 PV:xy240:
 p 296 782 100 0 0 PINI:YES
 p 555 945 100 0 1 DTYP:XYCOM-240
 p 805 870 100 0 1 SCAN:I/O Intr

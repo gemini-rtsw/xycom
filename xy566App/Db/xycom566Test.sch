@@ -6,7 +6,7 @@ w 362 850 -100 0 n#1 hwin.hwin#73.in 352 840 352 840 eais.aiS14.INP
 [cell use]
 use eais 470 731 100 0 aiS14
 xform 0 480 808
-p 442 731 100 0 -1 PV:x:
+p 386 731 100 0 -1 PV:xy566:
 p 354 889 100 0 1 DTYP:XYCOM-566 Dif Scanned
 p 303 700 100 0 1 EGUF:10.0
 p 303 673 100 0 1 EGUL:-10.0
