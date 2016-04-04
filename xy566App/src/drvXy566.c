@@ -171,6 +171,16 @@ static long xy566_report(int level)
 
 #define XY566_MEM_INCR  0x10000 /* size of data memory area */
 
+
+void xy566_set_gain(int, int);
+
+/* gain for all channels of each card = 1 by default */
+/* up to 8 cards supported */
+/* this is a hack that assumes only one type of card installed */
+/* so if you want different types of cards installed and you want */
+/* different gain settings for the different types, more hacking is necessary */
+int gain_select[8] = {0,0,0,0,0,0,0,0}; 
+
 /* memory structure of the 566 interface */
 typedef volatile struct  {              /* struct XVME 566 */
         char            dum[0x80];      /* odd bytes 1 - 3f contain
@@ -273,8 +283,8 @@ char          **pwf_mem;
  
 
 /* the routine to call when the data is read and the argument to send */
-unsigned int   **pargument;
 void          (**proutine)(void *);
+unsigned int   **pargument;
 
 /* VME memory Short Address Space is set up in gta_init */
 
@@ -314,10 +324,10 @@ static void ai566_intr(void *p)
 /*
  * ai_XY566_INIT
  *
- * intialize the xycom 566 analog input card
+ * intialize the xycom 566 analog input cards
  */
 static long ai_xy566_init_cards(
-    ai566Regs_t   ***pppcards_present,  /* Wow, this is kludgey.... */
+    ai566Regs_t   ***pppcards_present, 
     unsigned int     base_addr,
     short            num_channels,
     short            num_cards,
@@ -325,7 +335,7 @@ static long ai_xy566_init_cards(
     short         ***pppmem_present
 ) {
    short         shval;
-   short         i,n;
+   short         card, chan;
    ai566Regs_t  *pai566;   /* memory location of cards */
    char         *pai566io;   /* mem loc of I/O buffer */
    short         status;
@@ -358,7 +368,7 @@ if(num_cards > 0) {  /* Don't do any of this if we don't have any cards! */
 
 
       /* mark each card present into the card present array */
-      for (i = 0; i < num_cards; i++, pai566++, ppcards_present++, pai566io+=XY566_MEM_INCR,ppmem_present++) {
+      for (card=0; card<num_cards; ++card, ++pai566, ++ppcards_present, pai566io+=XY566_MEM_INCR, ++ppmem_present) {
          if(devReadProbe(sizeof(short), pai566, &shval) != OK) {
             *ppcards_present = 0;
             continue;
@@ -414,11 +424,12 @@ if(num_cards > 0) {  /* Don't do any of this if we don't have any cards! */
          /* end of the Am9513 commands */
 
          /* for each channel set gain and place into the scan list */
-         for (n=0; n < num_channels; n++) {
-            senb((&pai566->gram_base + n*2),0); /* gain == 1 */
+         for (chan=0; chan<num_channels; ++chan) {
+            /* all channels on same card get same gain setting */
+            senb((&pai566->gram_base + chan*2), gain_select[card]); 
             /* end of sequnce = 0x80 | channel */
             /* stop           = 0x40 | channel */
-            senb((&pai566->sram_base+n*2),(n==num_channels-1)? n|0x80:n);
+            senb((&pai566->sram_base+chan*2),(chan==num_channels-1)? chan|0x80:chan);
          }
          senw(&pai566->dram_ptr, 0);      /* data ram at 0 */
          senb(&pai566->sram_ptr, 0);      /* seq ram also at 0 */
@@ -454,7 +465,7 @@ static long ai_xy566l_init_cards(
    unsigned short ***pppmem_present
 ) {
    short            shval;
-   short            i,n;
+   short            card, chan;
    ai566Regs_t     *pai566;     /* memory location of cards */
    char            *pai566io;   /* mem loc of I/O buffer */
    int              status;
@@ -468,9 +479,9 @@ static long ai_xy566l_init_cards(
 
       paioscanpvt = (IOSCANPVT *)callocMustSucceed(num_cards, sizeof(*paioscanpvt), "XY566: Can't allocate memory");
    
-      for(i=0; i<num_cards; i++) {
-         paioscanpvt[i] = NULL;
-         scanIoInit(&paioscanpvt[i]);
+      for(card=0; card<num_cards; ++card) {
+         paioscanpvt[card] = NULL;
+         scanIoInit(&paioscanpvt[card]);
       }
    
 
@@ -505,7 +516,8 @@ static long ai_xy566l_init_cards(
       /* rebootHookAdd(xy566_reset); */
 
       /* mark each card present into the card present array */
-      for (i=0; i<num_cards; i++, pai566++, ppcards_present++, pai566io+=XY566_MEM_INCR, ppmem_present++){
+      for (card=0; card<num_cards; ++card, ++pai566, ++ppcards_present, pai566io+=XY566_MEM_INCR, ++ppmem_present){
+         int *parg;  /* card number argument to the interrupt service routine */
 
          if (devReadProbe(sizeof(short), pai566, &shval)) {
             *ppcards_present = 0;
@@ -521,14 +533,15 @@ static long ai_xy566l_init_cards(
          *ppmem_present = (unsigned short *)pai566io;
 
          /* put the card number in the dual ported memory */
-         senb(&pai566->card_number,i);
+         senb(&pai566->card_number, card);
 
          /* set up the interrupt vector */
          /* taken from the XYCOM-566 Manual. Figure 4-6  Page 4-19 */
-         pai566->int_vect = AI566_VNUM + i;
+         pai566->int_vect = AI566_VNUM + card;
   
-         /* intConnect(INUM_TO_IVEC(AI566_VNUM + i), ai566_intr, i); */
-         devConnectInterruptVME(AI566_VNUM + i, ai566_intr, &i);
+         parg = callocMustSucceed(1, sizeof(*parg), "XY566: Can't allocate memory"); 
+         *parg = card;
+         devConnectInterruptVME(AI566_VNUM + card, ai566_intr, &parg);
          devEnableInterruptLevelVME(XY566_INT_LEVEL); 
 
          /* reset the Xycom 566 board */
@@ -574,13 +587,14 @@ static long ai_xy566l_init_cards(
          /* end of the Am9513 commands */
 
          /* for each channel set gain and place into the scan list */
-         for (n=0; n < num_channels; n++) {
-            senb((&pai566->gram_base + n*2), 0); /* gain == 1 */
+         for (chan=0; chan<num_channels; ++chan) {
+            /* all channels on same card get same gain setting */
+            senb((&pai566->gram_base + chan*2), gain_select[chan]); 
 
             /* end of sequnce = 0x80 | channel */
             /* stop           = 0x40 | channel */
             /* interrupt      = 0x20 | channel */
-            senb((&pai566->sram_base+n*2),(n==num_channels-1)? n|0xe0:n);
+            senb((&pai566->sram_base+chan*2),(chan==num_channels-1)? chan|0xe0:chan);
          }
          senw(&pai566->dram_ptr,0);      /* data ram at 0 */
          senb(&pai566->sram_ptr,0);      /* seq ram also at 0 */
@@ -1078,6 +1092,13 @@ static long wf_xy566_io_report(int level)
                            
         return(0);
 }
+
+/* this has to be called BEFORE the Configure routine fpr each card */
+void xy566_set_gain(int card, int val)
+{
+   gain_select[card] == val;
+}
+
 
 int xy566SEConfig(unsigned int ncards, unsigned int nchannels,
     unsigned int base, unsigned int memory)
