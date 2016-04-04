@@ -65,21 +65,10 @@
  * .22  08-27-92   joh   fixed nonexsistant EPICS init 
  * .23  08-02-93   mrk   Added call to taskwdInsert
  * .24  08-04-93   mgb   Removed V5/V4 and EPICS_V2 conditionals
+ * .25  20160404   mdw   Converted to OSI compliance, simplified xy566_rval_report(),
+ *                       Fixed callback function pointer declarations to eliminate compiler warnings
  */
 
-
-#if 0
-/* vxWorks stuff */
-#include <vxWorks.h>
-#include <stdlib.h>
-#include <rebootLib.h>
-#include <intLib.h>
-#include <iv.h>
-#include <vme.h>
-#include <sysLib.h>
-#include <logLib.h>
-#include <vxLib.h>
-#endif
 
 /* EPICS stuff */
 #include <dbDefs.h>
@@ -1096,7 +1085,7 @@ static long wf_xy566_io_report(int level)
 /* this has to be called BEFORE the Configure routine fpr each card */
 void xy566_set_gain(int card, int val)
 {
-   gain_select[card] == val;
+   gain_select[card] = val;
 }
 
 
@@ -1143,10 +1132,22 @@ int xy566WFConfig(unsigned int ncards, unsigned int nchannels,
     return 0;
 }
 
+/* make xy566_set_gain() available to the ioc shell */
+static const iocshArg xy566_set_gainArg0 = {"Card number",                   iocshArgInt};
+static const iocshArg xy566_set_gainArg1 = {"Gain index",                    iocshArgInt};
+static const iocshArg *xy566_set_gainArgs[] = {
+          &xy566_set_gainArg0, &xy566_set_gainArg1};
+static const iocshFuncDef xy566_set_gainFuncDef = 
+          {"xy566_set_gain", 2, xy566_set_gainArgs};
+static void xy566_set_gainCallFunc(const iocshArgBuf *args)
+{
+   xy566_set_gain(args[0].ival, args[1].ival); 
+}
+
 
 /* make xy566SEConfig() available to the ioc shell */
 static const iocshArg xy566SEConfigArg0 = {"number of cards",                iocshArgInt};
-static const iocshArg xy566SEConfigArg1 = {"number of channels",             iocshArgInt};
+static const iocshArg xy566SEConfigArg1 = {"number of channels per card",    iocshArgInt};
 static const iocshArg xy566SEConfigArg2 = {"VME A16 registers base address", iocshArgInt};
 static const iocshArg xy566SEConfigArg3 = {"VME A24 memory base address",    iocshArgInt};
 static const iocshArg *xy566SEConfigArgs[] = {
@@ -1214,6 +1215,7 @@ static void xy566WFConfigCallFunc(const iocshArgBuf *args)
  {
      static int firstTime = 1;
      if (firstTime) {
+         iocshRegister(&xy566_set_gainFuncDef, xy566_set_gainCallFunc);
          iocshRegister(&xy566SEConfigFuncDef, xy566SEConfigCallFunc);
          iocshRegister(&xy566DIConfigFuncDef, xy566DIConfigCallFunc);
          iocshRegister(&xy566DILConfigFuncDef,xy566DILConfigCallFunc);

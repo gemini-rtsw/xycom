@@ -16,10 +16,10 @@
  *
  * Modification Log:
  * -----------------
- * .01  11-11-91        jba     Moved set of alarm stat and sevr to macros
+ * .01  11-11-91    jba   Moved set of alarm stat and sevr to macros
  * .02   03-13-92   jba   ANSI C changes
  * .03   02-08-94   mrk   Issue Hardware Errors BUT prevent Error Message Storms
- *      ...
+ * .04   20160404   mdw   Minor changes for EPICS OSI compliance
  */
 
 #if 0

@@ -37,6 +37,8 @@
  * .15   09-18-92   joh   documentation
  * .16   08-02-93   mrk   Added call to taskwdInsert
  * .17   08-04-93   mgb   Removed V5/V4 and EPICS_V2 conditionals
+ * .18   20160404   mdw   Converted to OSI compliance, simplified xy240_b?_io_report() routines,
+ *                        fixed faulty implementation of xy240_dio_out()
  */
 
 
@@ -301,7 +303,7 @@ long xy240_bo_driver(short card, epicsUInt32 val, epicsUInt32 mask)
  *
  *test routine for xy240 output 
  */
-int xy240_dio_out(short card,short port, unsigned short val)
+int xy240_dio_out(short card, short port, unsigned short val)
 {
    unsigned short work[2];
 
@@ -320,6 +322,9 @@ int xy240_dio_out(short card,short port, unsigned short val)
       return -3;
    }
 
+
+   /* writing to port 4 would clobber port 5 and vice-versa.
+    * Likewise with ports 6 and 7. Fixed (mdw) 20160404 */ 
    work[0] = dio[card].dptr->port4_5;
    work[1] = dio[card].dptr->port6_7;
 
@@ -357,90 +362,40 @@ int xy240_write(short card, epicsUInt32 val)
 
 void xy240_bi_io_report(int card)
 {
-   short int num_chans,j,k,l,m;
-   epicsUInt32 jval,kval,lval,mval;
+   epicsUInt32 chan, num_chans, val;
 
    num_chans = XY240_MAX_CHANS;
 
-   if(!dio[card].dptr){
-      return;
-   }
-
    epicsPrintf("\tXY240 BINARY IN CHANNELS:\n");
-   for(   j=0,k=1,l=2,m=3;
-         j < num_chans && k < num_chans && l< num_chans && m < num_chans; 
-         j+=IOR_MAX_COLS,k+= IOR_MAX_COLS,l+= IOR_MAX_COLS, m += IOR_MAX_COLS){
-
-
-      if(j < num_chans){
-         xy240_bi_driver(card,masks(j),&jval);
-         if (jval != 0) 
-            jval = 1;
-         epicsPrintf("\tChan %d = %x\t ",j,jval);
-      }
-      if(k < num_chans){
-         xy240_bi_driver(card,masks(k),&kval);
-         if (kval != 0) 
-            kval = 1;
-         epicsPrintf("Chan %d = %x\t ",k,kval);
-      }
-      if(l < num_chans){
-         xy240_bi_driver(card,masks(l),&lval);
-         if (lval != 0) 
-            lval = 1;
-         epicsPrintf("Chan %d = %x \t",l,lval);
-      }
-      if(m < num_chans){
-         xy240_bi_driver(card,masks(m),&mval);
-         if (mval != 0) 
-            mval = 1;
-         epicsPrintf("Chan %d = %x \n",m,mval);
-      }
+   for(chan=0; chan<num_chans; ++chan) {
+         if(xy240_bi_driver(card,masks(chan),&val) == 0)
+            epicsPrintf("\tChan %d = %x\t ",chan, val);
+         else { 
+            epicsPrintf("Invalid Card\n");
+            return;
+         }
+         if((chan%IOR_MAX_COLS) == (IOR_MAX_COLS-1)) epicsPrintf("\n");
    }
 }
 
    
 void xy240_bo_io_report(int card)
 {
-   short int num_chans,j,k,l,m;
-   epicsUInt32 jval,kval,lval,mval;
+   epicsUInt32 chan, num_chans, val;
 
    num_chans = XY240_MAX_CHANS;
 
-   if(!dio[card].dptr){
-      return;
-   }
-
    epicsPrintf("\tXY240 BINARY OUT CHANNELS:\n");
 
-   for(   j=0,k=1,l=2,m=3;
-         j < num_chans && k < num_chans && l < num_chans && m < num_chans; 
-         j+=IOR_MAX_COLS,k+= IOR_MAX_COLS,l+= IOR_MAX_COLS, m += IOR_MAX_COLS){
-
-      if(j < num_chans){
-         xy240_bo_read(card,masks(j),&jval);
-         if (jval != 0) 
-            jval = 1; 
-         epicsPrintf("\tChan %d = %x\t ",j,jval);
+   for(chan=0; chan<num_chans; ++chan) {
+      if(xy240_bo_read(card,masks(chan),&val) == 0)
+         epicsPrintf("\tChan %d = %x\t ", chan, val);
+      else 
+      {
+         epicsPrintf("Invalid Card\n");
+         return;
       }
-      if(k < num_chans){
-         xy240_bo_read(card,masks(k),&kval);
-         if (kval != 0) 
-            kval = 1; 
-         epicsPrintf("Chan %d = %x\t ",k,kval);
-      }
-      if(l < num_chans){
-         xy240_bo_read(card,masks(l),&lval);
-         if (lval != 0) 
-            lval = 1; 
-         epicsPrintf("Chan %d = %x \t",l,lval);
-      }
-      if(m < num_chans){
-         xy240_bo_read(card,masks(m),&mval);
-         if (mval != 0) 
-            mval = 1; 
-         epicsPrintf("Chan %d = %x \n",m,mval);
-      }
+      if((chan%IOR_MAX_COLS) == (IOR_MAX_COLS-1)) epicsPrintf("\n");
    }
 }
 
@@ -500,15 +455,27 @@ static void xy240_io_reportCallFunc(const iocshArgBuf *args )
 
 static const iocshArg xy240_dio_outArg0 = { "card", iocshArgInt };
 static const iocshArg xy240_dio_outArg1 = { "port",  iocshArgInt };
-static const iocshArg xy240_dio_outArg2 = { "val",   iocshArgInt };
+static const iocshArg xy240_dio_outArg2 = { "8-bit value",   iocshArgInt };
 static const iocshArg *xy240_dio_outArgs[] = { &xy240_dio_outArg0, 
    &xy240_dio_outArg1, 
    &xy240_dio_outArg2 };
 static const iocshFuncDef xy240_dio_outFuncDef =
-{"xy240_dio_out", 3, xy240_dio_outArgs}; 
+   {"xy240_dio_out", 3, xy240_dio_outArgs}; 
 static void xy240_dio_outCallFunc(const iocshArgBuf *args )
 {
    xy240_dio_out(args[0].ival, args[1].ival, args[2].ival);
+}
+
+static const iocshArg xy240_writeArg0 = { "card", iocshArgInt };
+static const iocshArg xy240_writeArg1 = { "32-bit value",  iocshArgInt };
+static const iocshArg *xy240_writeArgs[] = { 
+                                 &xy240_writeArg0, 
+                                 &xy240_writeArg1 };
+static const iocshFuncDef xy240_writeFuncDef =
+                       {"xy240_write", 2, xy240_writeArgs}; 
+static void xy240_writeCallFunc(const iocshArgBuf *args )
+{
+   xy240_write(args[0].ival, args[1].ival);
 }
 
 
@@ -519,6 +486,7 @@ static void drvXy240RegisterCommands(void)
       iocshRegister(&drvXy240ConfigFuncDef, drvXy240ConfigCallFunc);
 /*      iocshRegister(&xy240_io_reportFuncDef, xy240_io_reportCallFunc); */
       iocshRegister(&xy240_dio_outFuncDef, xy240_dio_outCallFunc);
+      iocshRegister(&xy240_writeFuncDef, xy240_writeCallFunc);
       firstTime = 0;
    }
 }
