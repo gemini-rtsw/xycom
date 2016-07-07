@@ -267,7 +267,7 @@ long xy240_bo_read(short card, epicsUInt32 mask, epicsUInt32 *prval)
 
    work = (dio[card].dptr->port4_5 << 16) + dio[card].dptr->port6_7;
 
-   *prval = work &= mask;
+   *prval = (work & mask);
 
    return(0);
 }
@@ -369,7 +369,7 @@ void xy240_bi_io_report(int card)
    epicsPrintf("\tXY240 BINARY IN CHANNELS:\n");
    for(chan=0; chan<num_chans; ++chan) {
          if(xy240_bi_driver(card,masks(chan),&val) == 0)
-            epicsPrintf("\tChan %d = %x\t ",chan, val);
+            epicsPrintf("\tChan %d = %x\t ",chan, val?1:0);
          else { 
             epicsPrintf("Invalid Card\n");
             return;
@@ -389,7 +389,7 @@ void xy240_bo_io_report(int card)
 
    for(chan=0; chan<num_chans; ++chan) {
       if(xy240_bo_read(card,masks(chan),&val) == 0)
-         epicsPrintf("\tChan %d = %x\t ", chan, val);
+         epicsPrintf("\tChan %d = %x\t ", chan, val?1:0);
       else 
       {
          epicsPrintf("Invalid Card\n");
