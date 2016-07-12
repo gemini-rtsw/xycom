@@ -25,17 +25,17 @@ w -1956 -805 100 0 n#19 hwin.hwin#124.in -1976 -808 -1936 -808 -1936 -920 -1896 
 use ebos -104 606 100 0 s0bo
 xform 0 -104 696
 p -179 782 100 0 1 DTYP:XYCOM-240
-p -188 606 100 0 -1 PV:xy240:
+p -314 606 100 0 -1 PV:xy240:C$(card):
 use hwout 24 648 100 0 hwout#51
 xform 0 120 664
-p 120 655 100 0 -1 val(outp):#C0 S0
+p 120 655 100 0 -1 val(outp):#C$(card) S0
 use ebos -109 371 100 0 s1bo
 xform 0 -104 464
 p -179 550 100 0 1 DTYP:XYCOM-240
-p -193 371 100 0 -1 PV:xy240:
+p -319 371 100 0 -1 PV:xy240:C$(card):
 use hwout 24 416 100 0 hwout#59
 xform 0 120 432
-p 120 423 100 0 -1 val(outp):#C0 S1
+p 120 423 100 0 -1 val(outp):#C$(card) S1
 use embbis 792 497 100 0 s24mbbi
 xform 0 808 576
 p 749 554 100 0 1 SCAN:Passive
@@ -48,15 +48,15 @@ p 1103 611 100 0 1 ZRST:FAULT(HIGH) (0,0)
 p 1103 579 100 0 1 ONST:DISASSERTED (0,1)
 p 1106 546 100 0 1 TWST:ASSERTED (1,0)
 p 1105 515 100 0 1 THST:FAULT(LOW) (1,1)
-p 708 497 100 0 -1 PV:xy240:
+p 582 497 100 0 -1 PV:xy240:C$(card):
 p 1093 652 100 0 1 NOBT:2
 p 766 536 100 0 1 PINI:YES
 use hwin 320 592 100 0 hwin#63
 xform 0 416 608
-p 332 601 100 0 -1 val(in):#C0 S24
+p 332 601 100 0 -1 val(in):#C$(card) S24
 use ebis 659 985 100 0 s24bi
 xform 0 648 1072
-p 575 985 100 0 -1 PV:xy240:
+p 449 985 100 0 -1 PV:xy240:C$(card):
 p 296 974 100 0 0 PINI:YES
 p 555 1137 100 0 1 DTYP:XYCOM-240
 p 799 1064 100 0 1 SCAN:I/O Intr
@@ -64,10 +64,10 @@ p 296 910 100 0 0 ONAM:disabled (1)
 p 296 942 100 0 0 ZNAM:enabled (0)
 use hwin 328 1088 100 0 hwin#65
 xform 0 424 1104
-p 331 1096 100 0 -1 val(in):#C0 S24
+p 331 1096 100 0 -1 val(in):#C$(card) S24
 use embbos -823 1063 100 0 s0mbbo
 xform 0 -824 1152
-p -907 1063 100 0 -1 PV:xy240:
+p -1033 1063 100 0 -1 PV:xy240:C$(card):
 p -1202 1220 100 0 1 NOBT:4
 p -1166 1163 100 0 1 ONST:(0,1)
 p -1242 1165 100 0 1 ONVL:1
@@ -105,10 +105,10 @@ p -1185 852 100 0 1 FTST:(1,1,1,0)
 p -1268 854 100 0 1 FTVL:14
 use hwout -696 1136 100 0 hwout#67
 xform 0 -600 1152
-p -600 1143 100 0 -1 val(outp):#C0 S0
+p -600 1143 100 0 -1 val(outp):#C$(card) S0
 use ebis 659 793 100 0 s25bi
 xform 0 648 880
-p 575 793 100 0 -1 PV:xy240:
+p 449 793 100 0 -1 PV:xy240:C$(card):
 p 296 782 100 0 0 PINI:YES
 p 555 945 100 0 1 DTYP:XYCOM-240
 p 805 870 100 0 1 SCAN:I/O Intr
@@ -116,24 +116,24 @@ p 296 718 100 0 0 ONAM:disabled (1)
 p 296 750 100 0 0 ZNAM:enabled (0)
 use hwin 328 896 100 0 hwin#71
 xform 0 424 912
-p 331 904 100 0 -1 val(in):#C0 S25
+p 331 904 100 0 -1 val(in):#C$(card) S25
 use ebos -101 91 100 0 s2bo
 xform 0 -96 184
 p -171 270 100 0 1 DTYP:XYCOM-240
-p -185 91 100 0 -1 PV:xy240:
+p -311 91 100 0 -1 PV:xy240:C$(card):
 use hwout 32 136 100 0 hwout#75
 xform 0 128 152
-p 128 143 100 0 -1 val(outp):#C0 S2
+p 128 143 100 0 -1 val(outp):#C$(card) S2
 use ebos -109 -173 100 0 s3bo
 xform 0 -104 -80
 p -179 6 100 0 1 DTYP:XYCOM-240
-p -193 -173 100 0 -1 PV:xy240:
+p -319 -173 100 0 -1 PV:xy240:C$(card):
 use hwout 24 -128 100 0 hwout#79
 xform 0 120 -112
-p 120 -121 100 0 -1 val(outp):#C0 S3
+p 120 -121 100 0 -1 val(outp):#C$(card) S3
 use embbos -823 583 100 0 s4mbbo
 xform 0 -824 672
-p -907 583 100 0 -1 PV:xy240:
+p -1033 583 100 0 -1 PV:xy240:C$(card):
 p -1202 740 100 0 1 NOBT:4
 p -1166 683 100 0 1 ONST:(0,1)
 p -1242 685 100 0 1 ONVL:1
@@ -171,10 +171,10 @@ p -1185 372 100 0 1 FTST:(1,1,1,0)
 p -1268 374 100 0 1 FTVL:14
 use hwout -696 656 100 0 hwout#83
 xform 0 -600 672
-p -600 663 100 0 -1 val(outp):#C0 S4
+p -600 663 100 0 -1 val(outp):#C$(card) S4
 use embbos -823 111 100 0 s8mbbo
 xform 0 -824 200
-p -907 111 100 0 -1 PV:xy240:
+p -1033 111 100 0 -1 PV:xy240:C$(card):
 p -1202 268 100 0 1 NOBT:4
 p -1166 211 100 0 1 ONST:(0,1)
 p -1242 213 100 0 1 ONVL:1
@@ -212,10 +212,10 @@ p -1185 -100 100 0 1 FTST:(1,1,1,0)
 p -1268 -98 100 0 1 FTVL:14
 use hwout -696 184 100 0 hwout#87
 xform 0 -600 200
-p -600 191 100 0 -1 val(outp):#C0 S8
+p -600 191 100 0 -1 val(outp):#C$(card) S8
 use embbos -831 -345 100 0 s12mbbo
 xform 0 -832 -256
-p -915 -345 100 0 -1 PV:xy240:
+p -1041 -345 100 0 -1 PV:xy240:C$(card):
 p -1210 -188 100 0 1 NOBT:4
 p -1174 -245 100 0 1 ONST:(0,1)
 p -1250 -243 100 0 1 ONVL:1
@@ -253,10 +253,10 @@ p -1193 -556 100 0 1 FTST:(1,1,1,0)
 p -1276 -554 100 0 1 FTVL:14
 use hwout -704 -272 100 0 hwout#91
 xform 0 -608 -256
-p -608 -265 100 0 -1 val(outp):#C0 S12
+p -608 -265 100 0 -1 val(outp):#C$(card) S12
 use embbis -1799 1063 100 0 s0mbbi
 xform 0 -1800 1152
-p -1883 1063 100 0 -1 PV:xy240:
+p -2009 1063 100 0 -1 PV:xy240:C$(card):
 p -2178 1220 100 0 1 NOBT:4
 p -2142 1163 100 0 1 ONST:1 (0,0,0,1)
 p -2218 1165 100 0 1 ONVL:1
@@ -295,10 +295,10 @@ p -2244 854 100 0 1 FTVL:14
 p -1867 1252 100 0 1 SCAN:I/O Intr
 use hwin -2200 1280 100 0 hwin#96
 xform 0 -2104 1296
-p -2197 1288 100 0 -1 val(in):#C0 S0
+p -2197 1288 100 0 -1 val(in):#C$(card) S0
 use embbos -847 -833 100 0 s16mbbo
 xform 0 -848 -744
-p -931 -833 100 0 -1 PV:xy240:
+p -1057 -833 100 0 -1 PV:xy240:C$(card):
 p -1226 -676 100 0 1 NOBT:4
 p -1190 -733 100 0 1 ONST:(0,1)
 p -1266 -731 100 0 1 ONVL:1
@@ -336,13 +336,13 @@ p -1209 -1044 100 0 1 FTST:(1,1,1,0)
 p -1292 -1042 100 0 1 FTVL:14
 use hwout -720 -760 100 0 hwout#100
 xform 0 -624 -744
-p -624 -753 100 0 -1 val(outp):#C0 S16
+p -624 -753 100 0 -1 val(outp):#C$(card) S16
 use hwin 1088 1088 100 0 hwin#102
 xform 0 1184 1104
-p 1091 1096 100 0 -1 val(in):#C0 S0
+p 1091 1096 100 0 -1 val(in):#C$(card) S0
 use ebis 1419 985 100 0 s0bi
 xform 0 1408 1072
-p 1335 985 100 0 -1 PV:xy240:
+p 1209 985 100 0 -1 PV:xy240:C$(card):
 p 1056 974 100 0 0 PINI:YES
 p 1315 1137 100 0 1 DTYP:XYCOM-240
 p 1559 1064 100 0 1 SCAN:Passive
@@ -350,7 +350,7 @@ p 1056 910 100 0 0 ONAM:disabled (1)
 p 1056 942 100 0 0 ZNAM:enabled (0)
 use ebis 1419 793 100 0 s1bi
 xform 0 1408 880
-p 1335 793 100 0 -1 PV:xy240:
+p 1209 793 100 0 -1 PV:xy240:C$(card):
 p 1056 782 100 0 0 PINI:YES
 p 1315 945 100 0 1 DTYP:XYCOM-240
 p 1565 870 100 0 1 SCAN:Passive
@@ -358,10 +358,10 @@ p 1056 718 100 0 0 ONAM:disabled (1)
 p 1056 750 100 0 0 ZNAM:enabled (0)
 use hwin 1088 896 100 0 hwin#108
 xform 0 1184 912
-p 1091 904 100 0 -1 val(in):#C0 S1
+p 1091 904 100 0 -1 val(in):#C$(card) S1
 use embbis -1839 519 100 0 s4mbbi
 xform 0 -1840 608
-p -1923 519 100 0 -1 PV:xy240:
+p -2049 519 100 0 -1 PV:xy240:C$(card):
 p -2218 676 100 0 1 NOBT:4
 p -2182 619 100 0 1 ONST:1 (0,0,0,1)
 p -2258 621 100 0 1 ONVL:1
@@ -400,10 +400,10 @@ p -2284 310 100 0 1 FTVL:14
 p -1907 708 100 0 1 SCAN:I/O Intr
 use hwin -2240 736 100 0 hwin#112
 xform 0 -2144 752
-p -2237 744 100 0 -1 val(in):#C0 S4
+p -2237 744 100 0 -1 val(in):#C$(card) S4
 use embbis -1831 -1 100 0 s8mbbi
 xform 0 -1832 88
-p -1915 -1 100 0 -1 PV:xy240:
+p -2041 -1 100 0 -1 PV:xy240:C$(card):
 p -2210 156 100 0 1 NOBT:4
 p -2174 99 100 0 1 ONST:1 (0,0,0,1)
 p -2250 101 100 0 1 ONVL:1
@@ -442,10 +442,10 @@ p -2276 -210 100 0 1 FTVL:14
 p -1899 188 100 0 1 SCAN:I/O Intr
 use hwin -2232 216 100 0 hwin#116
 xform 0 -2136 232
-p -2229 224 100 0 -1 val(in):#C0 S8
+p -2229 224 100 0 -1 val(in):#C$(card) S8
 use embbis -1799 -537 100 0 s12mbbi
 xform 0 -1800 -448
-p -1883 -537 100 0 -1 PV:xy240:
+p -2009 -537 100 0 -1 PV:xy240:C$(card):
 p -2178 -380 100 0 1 NOBT:4
 p -2142 -437 100 0 1 ONST:1 (0,0,0,1)
 p -2218 -435 100 0 1 ONVL:1
@@ -484,10 +484,10 @@ p -2244 -746 100 0 1 FTVL:14
 p -1867 -348 100 0 1 SCAN:I/O Intr
 use hwin -2200 -320 100 0 hwin#120
 xform 0 -2104 -304
-p -2197 -312 100 0 -1 val(in):#C0 S12
+p -2197 -312 100 0 -1 val(in):#C$(card) S12
 use embbis -1767 -1041 100 0 s16mbbi
 xform 0 -1768 -952
-p -1851 -1041 100 0 -1 PV:xy240:
+p -1977 -1041 100 0 -1 PV:xy240:C$(card):
 p -2146 -884 100 0 1 NOBT:4
 p -2110 -941 100 0 1 ONST:1 (0,0,0,1)
 p -2186 -939 100 0 1 ONVL:1
@@ -526,5 +526,5 @@ p -2212 -1250 100 0 1 FTVL:14
 p -1835 -852 100 0 1 SCAN:I/O Intr
 use hwin -2168 -824 100 0 hwin#124
 xform 0 -2072 -808
-p -2165 -816 100 0 -1 val(in):#C0 S16
+p -2165 -816 100 0 -1 val(in):#C$(card) S16
 [comments]
