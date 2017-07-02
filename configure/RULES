@@ -1,6 +1,20 @@
 # RULES
 
--include $(CONFIG)/RULES.Gem
+#-include $(CONFIG)/RULES.Gem
+#
+# This rule looks to see if Capfast (xschedit) is in your PATH, if it is, it
+# uses Capfast to build the database file, otherwise it uses "tdct".
+# It could be changed to look for "tdct" first, by swapping "xschedit"
+# for "tdct.jar".
+%.db: ../%.sch 
+	@echo "DB=>>>$(DB)<<<"
+	@echo "DEP=>>>$(DEP)<<<"
+	@echo "Running tcdt... INSTALL_DBS=>>>$(INSTALL_DBS)<<< subst=>>>$(SUBST_SUFFIX)<<<"
+	java -jar $(EPICS)/extensions/src/tdct/tdct.jar -cfg $(TDCT_CFG) -st $< -db $(COMMON_DIR) 
+
+#%.db$(DEP):
+#	@echo "Crap!!! the shit is >>>$@<<<"
+
 include $(CONFIG)/RULES
 
 # Library should be rebuilt because LIBOBJS may have changed.
