@@ -39,6 +39,8 @@
  * .17   08-04-93   mgb   Removed V5/V4 and EPICS_V2 conditionals
  * .18   20160404   mdw   Converted to OSI compliance, simplified xy240_b?_io_report() routines,
  *                        fixed faulty implementation of xy240_dio_out()
+ *       20171210   mdw   Begin additions to driver for general support with SCS partuclarly in mind
+ *       10171210   mdw   devRegisterAddress [in xy240_init()] was reserving address space for only 1 card 
  */
 
 
@@ -56,47 +58,67 @@
 #include <epicsStdio.h>
 #include <epicsExport.h>
 #include <epicsPrint.h>
+#include <epicsTypes.h>
+#include <epicsInterrupt.h>
+#include <devSup.h>
 
 #include "drvXy240.h"
 
 /* Number of columns used in io_report. */
 #define IOR_MAX_COLS 4
 
-static short bi_num_cards[] = {2};
-static short bi_num_channels[] = {32};
-static size_t bi_addrs[] = {0x8000};
+/* default values if the startup script doesn't call drvXy240Config() */
+static short xy240_num_cards = 2;
+static short xy240_num_channels = 32;
+static size_t xy240_addrs = 0x8000;
+static short xy240_int_vec = 80;               
+static short xy240_int_level = 5;
 
-/* #define XY240_ADDR0   ((char *) (long) bi_addrs[XY240_BI]) */
-#define XY240_ADDR0   (bi_addrs[XY240_BI])
-#define XY240_MAX_CARDS   (bi_num_cards[XY240_BI])
-#define XY240_MAX_CHANS   (bi_num_channels[XY240_BI])
+#define XY240_ADDR0       xy240_addrs
+#define XY240_MAX_CARDS   xy240_num_cards
+#define XY240_MAX_CHANS   xy240_num_channels
+#define XY240_INT_VEC     xy240_int_vec
+#define XY240_INT_LVL     xy240_int_level
+
+#define XY240_ANY_IRQ     8
+
+
 
 #define masks(K) ((1<<K))
 
 /*xy240 control registers structure*/
 typedef struct {
-   char            begin_pad[0x80];        /*go to interface block*/
-   unsigned short  csr;                    /*control status register*/
-   unsigned short  isr;                    /*interrupt service routine*/
-   unsigned short  iclr_vec;               /*interrupt clear/vector*/
-   unsigned short  flg_dir;                /*flag&port direction*/
-   unsigned short  port0_1;                /*port0&1 16 bits value*/
-   unsigned short  port2_3;                /*por2&3 16 bits value*/
-   unsigned short  port4_5;                /*port4&5 16 bits value*/
-   unsigned short  port6_7;                /*port6&7 16 bits value*/
-   char            end_pad[0x400-0x80-16]; /*pad til next card*/
+   char            vme_id[0x40];           /* VME Module ID in odd-numbered bytes */
+   char            begin_pad[0x40];        /* undefined space */
+   epicsUInt8      iir;                    /* interrupt inputs register */
+   epicsUInt8      csr;                    /* control & status register*/
+   epicsUInt8      ipr;                    /* interrupt pending register */
+   epicsUInt8      imr;                    /* interrupt mask register */
+   epicsUInt8      icr;                    /* interrupt clear register*/
+   epicsUInt8      ivr;                    /* interrupt vector register*/
+   epicsUInt8      flags;                  /* flag outputs register */
+   epicsUInt8      pdr;                    /* port direction register */
+   unsigned short  port0_1;                /* port0&1 16 bits value*/
+   unsigned short  port2_3;                /* por2&3 16 bits value*/
+   unsigned short  port4_5;                /* port4&5 16 bits value*/
+   unsigned short  port6_7;                /* port6&7 16 bits value*/
+   char            end_pad[0x370];         /* reserved space*/
 } volatile xy240Regs_t;
 
 /*create dio control structure record*/
 typedef struct {
-   xy240Regs_t volatile *dptr;                      /*pointer to registers*/
-   short num;                              /*device number*/
-   short mode;                             /*operating mode*/
-   unsigned short sport0_1;                /*saved inputs*/
-   unsigned short sport2_3;                /*saved inputs*/
+   xy240Regs_t volatile *dptr;             /* pointer to registers*/
+   short num;                              /* device number*/
+   short mode;                             /* operating mode*/
+   unsigned short sport0_1;                /* saved inputs*/
+   unsigned short sport2_3;                /* saved inputs*/
+   unsigned short sport4_5;                /* saved inputs*/
+   unsigned short sport6_7;                /* saved inputs*/
    IOSCANPVT ioscanpvt;
-   /*short dio_vec;*/                      /*interrupt vector*/
-   /*unsigned int intr_num;*/              /*interrupt count*/
+   epicsUInt8 int_lvl;                     /* interrupt level */
+   unsigned int intr_num;                  /* interrupt count*/
+   void (*pISR[9])(int);                   /* interrupt service routine pointers */
+   epicsBoolean intConnected;              /* true if this card has interrupts connected */
 } dio_rec_t;
 
 
@@ -138,21 +160,21 @@ static int dio_scan()
    first_scan = TRUE;
    for (;;) {
       for (i = 0; i < XY240_MAX_CARDS; i++) {
-         if (dio[i].dptr)
-            if (((dio[i].dptr->port0_1) ^ (dio[i].sport0_1)) 
-                  || ((dio[i].dptr->port2_3) ^ (dio[i].sport2_3))
-                  || first_scan) 
-            {
-               /* epicsPrintf("io_scanner_wakeup for card no %d\n",i); */
-               scanIoRequest(dio[i].ioscanpvt);
-               dio[i].sport0_1 = dio[i].dptr->port0_1;
-               dio[i].sport2_3 = dio[i].dptr->port2_3;     
-            }
-      }
-      if (first_scan) {
-         first_scan = 0;
-         first_scan_complete = 1;
-      }
+            if (dio[i].dptr)
+               if (((dio[i].dptr->port0_1) ^ (dio[i].sport0_1)) 
+                     || ((dio[i].dptr->port2_3) ^ (dio[i].sport2_3))
+                     || first_scan) 
+               {
+                  /* epicsPrintf("io_scanner_wakeup for card no %d\n",i); */
+                  scanIoRequest(dio[i].ioscanpvt);
+                  dio[i].sport0_1 = dio[i].dptr->port0_1;
+                  dio[i].sport2_3 = dio[i].dptr->port2_3;     
+               }
+         }
+         if (first_scan) {
+            first_scan = 0;
+            first_scan_complete = 1;
+         }
       epicsThreadSleep(0.05);
    }
 
@@ -167,7 +189,7 @@ static int dio_scan()
 long xy240_init()
 {
    short                  val;
-   register short         i;
+   register short         i, j;
    xy240Regs_t           *pdio_xy240;
    int                    status;
    int                    at_least_one_present = FALSE;
@@ -177,9 +199,13 @@ long xy240_init()
     * allow for runtime reconfiguration of the
     * addr map
     */
+
+   /* to do: revise so that each card can be registered independently and non-contiguously */
    dio = (dio_rec_t *) callocMustSucceed(XY240_MAX_CARDS, sizeof(dio_rec_t), "XY240: Can't allocate memory");
 
-   status = devRegisterAddress("xy240", atVMEA16, XY240_ADDR0, sizeof(xy240Regs_t), (void *)&pdio_xy240);
+   status = devRegisterAddress("xy240", atVMEA16, XY240_ADDR0, 
+                                XY240_MAX_CARDS*sizeof(xy240Regs_t),
+                                (void *)&pdio_xy240);
    if (status != OK){
       errlogPrintf("%s: Unable to map the XY240 A16 base addr\n", __FILE__);
       return ERROR;
@@ -198,11 +224,18 @@ long xy240_init()
       /*
        *    register initialization
        */
-      pdio_xy240->csr = 0x3;
-      pdio_xy240->iclr_vec = 0x00;   /*clear interrupt input register latch*/
-      pdio_xy240->flg_dir = 0xf0;   /*ports 0-3,input;ports 4-7,output*/
-      dio[i].sport2_3 = pdio_xy240->port2_3;   /*read and save high values*/
-      dio[i].dptr = pdio_xy240;
+      pdio_xy240->csr = 0x3;                   /* red led off, green led on, interrupts disabled */
+      pdio_xy240->icr = 0x00;                  /* clear interrupt input register latch */
+      pdio_xy240->pdr = 0xf0;                  /* ports 0-3,input;ports 4-7,output */
+      dio[i].sport2_3 = pdio_xy240->port2_3;   /* read and save high values (mdw wants to know why?) */
+      dio[i].dptr = pdio_xy240;                /* store pointer to card registers */
+
+      dio[i].dptr->ivr = XY240_INT_VEC + i;    /* set interrupt vector for this card */
+      dio[i].int_lvl   = XY240_INT_LVL;        /* interrupt level must match dip switch setting */
+
+      for(j=0; j<9; ++j)          /* make sure interrupt service routine pointers */
+         dio[i].pISR[j] = NULL;   /* are cleared out */
+
       at_least_one_present = TRUE;
       scanIoInit(&dio[i].ioscanpvt);
    }
@@ -360,6 +393,7 @@ int xy240_write(short card, epicsUInt32 val)
 }
 
 
+
 void xy240_bi_io_report(int card)
 {
    epicsUInt32 chan, num_chans, val;
@@ -420,9 +454,9 @@ long xy240_io_report(int level)
 
 int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
 {
-   bi_num_cards[XY240_BI] = ncards;
-   bi_num_channels[XY240_BI] = nchannels;
-   bi_addrs[XY240_BI] = base;
+   xy240_num_cards = ncards;
+   xy240_num_channels = nchannels;
+   xy240_addrs = base;
    return 0;
 }
 
@@ -491,3 +525,422 @@ static void drvXy240RegisterCommands(void)
    }
 }
 epicsExportRegistrar(drvXy240RegisterCommands);
+
+
+
+
+/********************************************************************************************
+ * This stuff added to support SCS                                                          *
+ * 07-Dec-2017 (mdw)
+ * ******************************************************************************************/
+
+/*******************************************************************************************
+ * xy240_status()
+ * return the initialization status of the xy240 card                                      *
+ *******************************************************************************************/
+unsigned long xy240_status(int cardnum) 
+{
+
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS || dio[cardnum].dptr==NULL)
+      return S_dev_NoInit;
+
+   return OK;
+}
+
+/* some diagnostic variables */
+int xy240_isr_bogus_card_cnt = 0;
+epicsExportAddress(int, xy240_isr_bogus_card_cnt);
+
+int xy240_isr_bogus_int_cnt = 0;
+epicsExportAddress(int, xy240_isr_bogus_int_cnt);
+
+int xy240_isr_int_not_pending_cnt = 0;
+epicsExportAddress(int, xy240_isr_int_not_pending_cnt);
+
+void xy240_isr(void *p) /*  p is number of the card that caused the interrupt */
+{
+   int key = epicsInterruptLock();
+   int cardnum = (int)(long)p;
+   register int i;
+
+   /* make sure card number isn't bogus */
+   if (dio[cardnum].dptr == NULL || cardnum < 0 || cardnum >= XY240_MAX_CARDS) {
+      xy240_isr_bogus_card_cnt++;
+      epicsInterruptUnlock(key);
+      return;
+   }
+   
+   /* make sure card has been set to use interrupts */
+   if(!dio[cardnum].intConnected) {
+      dio[cardnum].dptr->csr &= ~XY240_CSR_INT_ENA;   /* disable interrupts on card */
+      xy240_isr_bogus_int_cnt++;
+      epicsInterruptUnlock(key);
+      return;
+   }
+    
+   /* figure out if there is actually an interrupt pending */
+   if(!(dio[cardnum].dptr->csr & XY240_CSR_INT_PENDING)) {
+     dio[cardnum].dptr->icr = 0xff; /* clear all interrupts */
+     xy240_isr_int_not_pending_cnt++;
+     epicsInterruptUnlock(key);
+     return;
+   }  
+
+   /* now execute the connected handler function */
+
+   /* if we've hooked a routine to run on any interrupt */ 
+   if(dio[cardnum].pISR[XY240_ANY_IRQ])
+      (*dio[cardnum].pISR[XY240_ANY_IRQ])(cardnum);
+
+   /* now run routines for individual irq channels */
+   for (i=0; i<8; ++i) 
+      if(dio[cardnum].dptr->ipr & masks(i))
+         if(dio[cardnum].pISR[i] != NULL) /* check for null pointer to handler */
+            (*dio[cardnum].pISR[i])(cardnum); // call handler with card number
+
+   /* clear all interrupts */            
+   dio[cardnum].dptr->icr = 0xff; /* clear all interrupts */
+
+   epicsInterruptUnlock(key);
+}
+
+
+/*****************************************************************************
+*
+* xy240_intConnect - Connect a C routine up to an XY240 Interrupt
+*
+* This is used to register an interrupt routine with the xy240  driver layer,
+* and initialises the registers on the xy240 card to enable interrupts
+* for the given RM interrupt channel number.
+*
+* The interrupt routine should expect a single integer parameter, which 
+* will contain the card number of the xy240 interrupt source.
+*
+*
+* RETURNS:
+* OK, or S_dev_??? errors.
+* 
+* EXAMPLE:
+* .CS
+*   void myIsr(int cardnum);
+*   int status;
+*
+*   status = xy240_intConnect(cardnum, irqchan, myIsr);
+*   if(status != 0)
+*       errlogPrintf("Can't connect xy240 interrupt for irq %d on card %d. status=%d\n", 
+*                     irqchan, cardnum, status, );
+* .CE
+*
+* SEE ALSO: xy240IntDisconnect()
+*/
+long xy240_intConnect(int cardnum, int irqchan, void (*proutine)(int)) 
+{
+   long status;
+
+   if (dio[cardnum].dptr == NULL)
+      return S_dev_NoInit;
+   if(irqchan<0 || irqchan>XY240_ANY_IRQ)
+      return S_dev_vecInstlFail;
+   if(dio[cardnum].pISR[irqchan] != NULL)
+      return S_dev_vectorInUse;
+
+   /* connect the card's interrupt if not already connected */
+   if(!dio[cardnum].intConnected) {
+      if(devInterruptInUseVME(dio[cardnum].dptr->ivr))
+         return S_dev_vectorInUse;
+      status = devConnectInterruptVME(dio[cardnum].dptr->ivr, xy240_isr, (void *)(long)cardnum);
+      if (status != OK)
+         return status;
+      dio[cardnum].dptr->csr |= XY240_CSR_INT_ENA;               /* enable card's master interrupt control */ 
+      status = devEnableInterruptLevelVME(dio[cardnum].int_lvl); /* enable system interrupt level */
+      if (status != OK)
+         return status;
+      dio[cardnum].intConnected = epicsTrue;                     /* indicate that this card is interrupting */
+   }
+
+   /* save the routine pointer */
+   dio[cardnum].pISR[irqchan] = proutine;
+   
+   /* now enable the interrupt on the hardware */
+   dio[cardnum].dptr->icr = 0xFF;           /* clear interrupts */
+   /* a specific call to xy240_writeIMR() is needed in the case that irqchan=XY240_ANY_IRQ */
+   if(irqchan<XY240_ANY_IRQ)
+       dio[cardnum].dptr->imr |= (1 << irqchan); /* unmask this interrupt source */
+
+   return OK;
+}
+
+/*****************************************************************************
+*
+* xy240_intDisconnect - Disconnect an xy240 interrupt routine
+*
+* This disables Xycom-240 interrupts on the given card and channel and marks the
+* channel as unused.
+*
+* RETURNS:
+* OK, or S_dev_???
+*
+* EXAMPLE:
+* .CS
+*   int status;
+*
+*   status = xy240_intDisconnect(icardnum, irqchan);
+*   if (status)
+*       printf("No ISR Connected\\n");
+* .CE
+*
+* SEE ALSO: xy240_intConnect()
+*/
+long xy240IntDisconnect(int cardnum, int irqchan) 
+{
+   register int i;
+   if(cardnum<0 || cardnum>=XY240_MAX_CARDS) 
+      return S_dev_NoInit;
+
+   if(irqchan<0 || irqchan>XY240_ANY_IRQ || !dio[cardnum].pISR[irqchan])
+      return S_dev_vectorNotInUse;
+
+   /* Mask this irq channel on the hardware. In the case of irqchan==XY240_ANY_IRQ,
+    * the calling program will also have to call xy240_writeIMR() first to mask the channels
+    * that it was interested in */ 
+   if(irqchan<XY240_ANY_IRQ)
+     dio[cardnum].dptr->imr &= !masks(irqchan); 
+
+   /* clear the interrupt routine pointer for this irq channel */
+   dio[cardnum].pISR[irqchan] = NULL;
+
+   /* if there are any routines left connected, don't disconnect this card's main ISR */
+   for(i=0; i<=XY240_ANY_IRQ; i++)
+      if(dio[cardnum].pISR[i])
+         return OK;
+
+   /* disable the card's interrupt */ 
+   dio[cardnum].dptr->csr &= ~XY240_CSR_INT_ENA;
+
+   /* indicate that this card is not interrupting */
+   dio[cardnum].intConnected = epicsFalse;
+
+   /* disconnect the main ISR */
+   return devDisconnectInterruptVME(dio[cardnum].dptr->ivr, xy240_isr);
+
+}
+
+
+/* get the contents of the Interrupts Pending Register */
+int  xy240_readIPR(int cardnum) 
+{
+   if(cardnum<0 || cardnum>=XY240_MAX_CARDS || !dio[cardnum].dptr)
+      return ERROR;
+
+   return dio[cardnum].dptr->ipr;
+}
+
+
+
+
+int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, epicsBoolean bitval) 
+{
+   epicsUInt8 volatile *port;
+
+   if(cardnum<0 || cardnum>=XY240_MAX_CARDS) {
+      errlogPrintf("xy240_writePortBit(): bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   if(portnum>7) {
+      errlogPrintf("xy240_writePortBit(): bad port number %d for card %d\n",
+                     portnum, cardnum);
+      return ERROR;
+   }
+   
+   if(bitnum>7) {
+      errlogPrintf("xy240_writePortBit(): bad bit number %d for port  %d for card %d\n",
+                     bitnum, portnum, cardnum);
+      return ERROR;
+   }
+   
+   port  = (epicsUInt8 *)&dio[cardnum].dptr->port0_1;
+
+   if(bitval)
+      port[portnum] |= masks(bitnum);
+   else
+      port[bitnum] &= ~masks(bitnum);
+
+   return OK;
+}
+
+int xy240_writePortByte(int cardnum, epicsUInt8 portnum, epicsUInt8 byteval) 
+{
+   epicsUInt8 volatile *port;
+
+   if(cardnum<0 || cardnum>=XY240_MAX_CARDS) {
+      errlogPrintf("xy240_writePortByte(): bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   if(portnum>7) {
+      errlogPrintf("xy240_writePortByte(): bad port number %d for card %d\n",
+                     portnum, cardnum);
+      return ERROR;
+   }
+   
+   port  = (epicsUInt8 *)&dio[cardnum].dptr->port0_1;
+
+   port[portnum] = byteval;
+
+   return OK;
+}
+
+int xy240_writeFlagBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval) 
+{
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr ) {
+      errlogPrintf("xy240_writeFlagBit(): Bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   if(bitnum<0 || bitnum>7) {
+      errlogPrintf("xy240_writeFlagBit(): Bad bit number %d on card %d\n", bitnum, cardnum);
+      return ERROR;
+   }
+
+   if(bitval)
+      dio[cardnum].dptr->flags |= masks(bitnum);
+   else
+      dio[cardnum].dptr->flags &= ~masks(bitnum);
+      
+   return OK;
+}
+
+
+int xy240_setResetFlagBits(int cardnum, epicsUInt8 bitmask, epicsBoolean set) 
+{
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr) {
+      errlogPrintf("xy240_writeFlagBit(): Bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+
+   if(set) /* set bits in specified in mask */
+      dio[cardnum].dptr->flags |= bitmask; 
+   else    /* clear bits specified in mask */
+      dio[cardnum].dptr->flags &= ~bitmask;
+      
+   return OK;
+}
+
+int xy240_writeFlagByte(int cardnum, epicsUInt8 bitnum, epicsUInt8 byteval) 
+{
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS) {
+      errlogPrintf("xy240_writeFlagByte(): Bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   dio[cardnum].dptr->flags = byteval;
+      
+   return OK;
+}
+
+/* Write interrupt mask register */
+int xy240_writeIMR(int cardnum, epicsUInt8 byteval) 
+{
+   if(cardnum<0 || cardnum >=XY240_MAX_CARDS || !dio[cardnum].dptr) {
+      errlogPrintf("xy240_writeIMR(): bad card number %d\n", cardnum);
+      return ERROR;
+   }
+   
+   dio[cardnum].dptr->imr = byteval;
+   return OK;
+}
+
+
+/* Set or reset an individual Control and Status Register bit */
+int xy240_writeCSRBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval)
+{
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr ) {
+      errlogPrintf("xy240_writeSCSBit(): Bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   if(bitnum<0 || bitnum>7) {
+      errlogPrintf("xy240_writeSCSBit(): Bad bit number %d on card %d\n", bitnum, cardnum);
+      return ERROR;
+   }
+
+   if(bitval)
+      dio[cardnum].dptr->csr |= masks(bitnum);
+   else
+      dio[cardnum].dptr->csr &= ~masks(bitnum);
+
+   return OK;
+}
+
+/* read the value of a port */
+epicsInt16 xy240_readPortByte(int cardnum, epicsUInt8 portnum) 
+{
+   epicsUInt8 volatile *port;
+
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr ) {
+      errlogPrintf("xy240_readByte(): Bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   port = (epicsUInt8 *)&dio[cardnum].dptr->port0_1;
+
+   return port[portnum];
+}
+
+
+/* control the state of the front panel LEDs */
+int xy240_ledCtl(int cardnum, epicsUInt8 led, epicsBoolean val)
+{
+   if(led>1) {
+      errlogPrintf("xy240_ledCtl(): bad LED number %d for card %d\n",
+                     led,  cardnum);
+      return ERROR;
+   }
+
+   if (led) /* green LED */
+      xy240_writeCSRBit(cardnum, 1, val);   
+   else     /* red LED */
+      xy240_writeCSRBit(cardnum, 0, !val); /* red LED is inverse value */   
+
+   return OK;
+}
+
+
+#if 0
+/* this stuff not needed for SCS.... Complete later, maybe. */
+
+void * xy240GetBaseAddr(int boardNum) {}
+
+ 
+int xy240ReadBit(int card, epicsUInt8 port, epicsUInt8  bitnum) {}
+
+int xy240ReadFlagByte(int card) {}
+int xy240ReadFlagBit(int card, epicsUInt8 bitnum) {}
+
+int xy240ReadIIR(int card) {}
+int xy240ReadIVR(int card) {}
+int xy240WriteIVR(int card, epicsUInt8 byteval) {}
+int xy240ReadIMR(int card) {}
+int xy240ReadIMRBit(int card, epicsUInt8 bitnum) {}
+int xy240WriteIMRBit(int card, epicsUInt8 bitnum, epicsBoolean bitval) {}
+int xy240WriteICR(int card, epicsUInt8 byteval) {}
+int xy240WriteICRBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval) {}
+
+
+int xy240ReadPDR(int card) {}
+int xy240ReadPDRBit(int card, epicsUInt8 bitnum) {} 
+int xy240WritePDR(int card, epicsUInt8 byteval) {}
+int xy240WritePDRBit(int card, epicsUInt8 bitnum, epicsBoolean bitval) {}
+
+
+int xy240ReadCSR(int card) {}
+int xy240ReadCSRBit(int card, epicsUInt8 bitnum) {}
+int xy240WriteCSR(int card, epicsUInt8 byteval) {}
+int xy240WriteCSRBit(int card, epicsUInt8 bitnum, epicsBoolean bitval) {}
+
+
+int xy240Help(void) {/* print out available xy240 shell commands */}
+
+#endif
