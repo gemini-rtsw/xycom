@@ -691,7 +691,7 @@ long xy240_intConnect(int cardnum, int irqchan, void (*proutine)(int))
 *
 * SEE ALSO: xy240_intConnect()
 */
-long xy240IntDisconnect(int cardnum, int irqchan) 
+long xy240_intDisconnect(int cardnum, int irqchan) 
 {
    register int i;
    if(cardnum<0 || cardnum>=XY240_MAX_CARDS) 

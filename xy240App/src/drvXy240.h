@@ -5,6 +5,9 @@
 #ifndef DRV_XY240_H
 #define DRV_XY240_H
 
+#include <epicsTypes.h>
+#include <dbScan.h>
+
 #define OK 0
 #define ERROR (-1)
 
@@ -22,6 +25,8 @@
 
 #define XY240_RED_LED     0  
 #define XY240_GREEN_LED   1
+
+#define XY240_ANY_IRQ     8
 
 long xy240_init();
 long xy240_getioscanpvt(short card, IOSCANPVT *scanpvt);
