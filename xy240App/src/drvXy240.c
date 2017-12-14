@@ -460,39 +460,65 @@ int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
    return 0;
 }
 
+int drvXy240ConfigWithInterrupts(
+             unsigned int ncards, 
+             unsigned int nchannels, 
+             size_t base, 
+             unsigned int int_vec, 
+             unsigned int int_level )
+{
+   drvXy240Config(ncards, nchannels, base);
+   xy240_int_vec = int_vec;
+   xy240_int_level = int_level;
+   
+   return 0;
+}
 
-static const iocshArg drvXy240ConfigArg0 = { "ncards",    iocshArgInt };
-static const iocshArg drvXy240ConfigArg1 = { "nchannels", iocshArgInt };
-static const iocshArg drvXy240ConfigArg2 = { "base",      iocshArgInt };
-static const iocshArg *drvXy240ConfigArgs[] = { &drvXy240ConfigArg0, 
+
+static const iocshArg drvXy240ConfigArg0 = { "number of cards",            iocshArgInt };
+static const iocshArg drvXy240ConfigArg1 = { "number of channel per card", iocshArgInt };
+static const iocshArg drvXy240ConfigArg2 = { "base address of first card", iocshArgInt };
+static const iocshArg drvXy240ConfigArg3 = { "interrupt vector",           iocshArgInt };
+static const iocshArg drvXy240ConfigArg4 = { "interrupt level",            iocshArgInt };
+
+static const iocshArg *drvXy240ConfigArgs[] = { 
+   &drvXy240ConfigArg0, 
    &drvXy240ConfigArg1, 
-   &drvXy240ConfigArg2 };
+   &drvXy240ConfigArg2,
+   &drvXy240ConfigArg3,
+   &drvXy240ConfigArg4 
+};
+
 static const iocshFuncDef drvXy240ConfigFuncDef =
-{"drvXy240Config", 3, drvXy240ConfigArgs}; 
+         {"drvXy240Config", 3, drvXy240ConfigArgs}; 
 static void drvXy240ConfigCallFunc(const iocshArgBuf *args )
 {
-   drvXy240Config(args[0].ival, args[1].ival, args[2].ival);
+         drvXy240Config(args[0].ival, args[1].ival, args[2].ival);
 }
 
-
-/* this doesn't need to be exported to the shell; it is available via 'dbior'*/
-#if 0
-static const iocshArg xy240_io_reportArg0 = { "level", iocshArgInt };
-static const iocshArg *xy240_io_reportArgs[] = { &xy240_io_reportArg0 };
-static const iocshFuncDef xy240_io_reportFuncDef =
-{"xy240_io_report", 3, xy240_io_reportArgs}; 
-static void xy240_io_reportCallFunc(const iocshArgBuf *args )
+static const iocshFuncDef drvXy240ConfigWithInterruptsFuncDef =
+      {"drvXy240ConfigWithInterrupts", 5, drvXy240ConfigArgs}; 
+static void drvXy240ConfigWithInterruptsCallFunc(const iocshArgBuf *args )
 {
-   xy240_io_report(args[0].ival);
+   drvXy240ConfigWithInterrupts(args[0].ival, args[1].ival, args[2].ival, args[3].ival, args[4].ival);
 }
-#endif
 
-static const iocshArg xy240_dio_outArg0 = { "card", iocshArgInt };
-static const iocshArg xy240_dio_outArg1 = { "port",  iocshArgInt };
-static const iocshArg xy240_dio_outArg2 = { "8-bit value",   iocshArgInt };
-static const iocshArg *xy240_dio_outArgs[] = { &xy240_dio_outArg0, 
-   &xy240_dio_outArg1, 
-   &xy240_dio_outArg2 };
+
+static const iocshArg xy240_cardArg  = { "card number",   iocshArgInt };
+static const iocshArg xy240_portArg  = { "port number",   iocshArgInt };
+static const iocshArg xy240_boolArg  = { "boolean value", iocshArgInt };
+static const iocshArg xy240_ledArg   = { "LED (red=0, green=1)", iocshArgInt };
+static const iocshArg xy240_val8Arg  = { "8-bit value",   iocshArgInt };
+static const iocshArg xy240_val16Arg = { "16-bit value",  iocshArgInt };
+static const iocshArg xy240_val32Arg = { "32-bit value",  iocshArgInt };
+static const iocshArg xy240_val64Arg = { "64-bit value",  iocshArgInt };
+static const iocshArg xy240_bitArg   = { "bit number",    iocshArgInt };
+
+static const iocshArg *xy240_dio_outArgs[] = { 
+      &xy240_cardArg, 
+      &xy240_portArg, 
+      &xy240_val8Arg
+ };
 static const iocshFuncDef xy240_dio_outFuncDef =
    {"xy240_dio_out", 3, xy240_dio_outArgs}; 
 static void xy240_dio_outCallFunc(const iocshArgBuf *args )
@@ -500,27 +526,138 @@ static void xy240_dio_outCallFunc(const iocshArgBuf *args )
    xy240_dio_out(args[0].ival, args[1].ival, args[2].ival);
 }
 
-static const iocshArg xy240_writeArg0 = { "card", iocshArgInt };
-static const iocshArg xy240_writeArg1 = { "32-bit value",  iocshArgInt };
 static const iocshArg *xy240_writeArgs[] = { 
-                                 &xy240_writeArg0, 
-                                 &xy240_writeArg1 };
+      &xy240_cardArg, 
+      &xy240_val32Arg 
+};
 static const iocshFuncDef xy240_writeFuncDef =
-                       {"xy240_write", 2, xy240_writeArgs}; 
+   {"xy240_write", 2, xy240_writeArgs}; 
 static void xy240_writeCallFunc(const iocshArgBuf *args )
 {
    xy240_write(args[0].ival, args[1].ival);
 }
 
 
+
+void iocshXy240WritePortBit(int card, int port, int bit, int val)
+{
+      epicsPrintf("XY240: Setting bit %d of port %d on card %d to %d\n",
+                 bit, port, card, val);
+      xy240_writePortBit(card, port, bit, val);
+}
+static const iocshArg *xy240_writePortBitArgs[] = {
+      &xy240_cardArg,
+      &xy240_portArg,
+      &xy240_bitArg,
+      &xy240_boolArg
+};
+static const iocshFuncDef xy240_writePortBitFuncDef =
+   {"xy240_writePortBit", 4, xy240_writePortBitArgs}; 
+static void xy240_writePortBitCallFunc(const iocshArgBuf *args )
+{
+   iocshXy240WritePortBit(args[0].ival, args[1].ival, args[2].ival, args[3].ival);
+}
+      
+
+
+void iocshXy240WritePortByte(int card, int port, epicsUInt8 byte)
+{
+      epicsPrintf("XY240: Writing 0x%02X to port %d on card %d\n",
+               byte, port, card);
+      xy240_writePortByte(card, port, byte);
+}
+static const iocshArg *xy240_writePortByteArgs[] = {
+      &xy240_cardArg,
+      &xy240_portArg,
+      &xy240_val8Arg
+};
+static const iocshFuncDef xy240_writePortByteFuncDef =
+   {"xy240_writePortByte", 3, xy240_writePortByteArgs}; 
+static void xy240_writePortByteCallFunc(const iocshArgBuf *args )
+{
+   iocshXy240WritePortByte(args[0].ival, args[1].ival, args[2].ival);
+}
+      
+
+void iocshXy240ReadPortBit(int card, int port, int bit)
+{
+   epicsPrintf("XY240: bit %d of port %d on card %d = %d\n",
+            bit, port, card, xy240_readPortBit(card, port, bit));
+}
+static const iocshArg *xy240_readPortBitArgs[] = {
+      &xy240_cardArg,
+      &xy240_portArg,
+      &xy240_bitArg,
+};
+static const iocshFuncDef xy240_readPortBitFuncDef =
+   {"xy240_readPortBit", 3, xy240_readPortBitArgs}; 
+static void xy240_readPortBitCallFunc(const iocshArgBuf *args )
+{
+   iocshXy240ReadPortBit(args[0].ival, args[1].ival, args[2].ival);
+}
+      
+
+
+
+void iocshXy240ReadPortByte(int card, int port)
+{
+   epicsPrintf("XY240: port %d on card %d = 0x%02X\n",
+            port, card, xy240_readPortByte(card, port));
+}
+static const iocshArg *xy240_readPortByteArgs[] = {
+      &xy240_cardArg,
+      &xy240_portArg,
+};
+static const iocshFuncDef xy240_readPortByteFuncDef =
+   {"xy240_readPortByte", 2, xy240_readPortByteArgs}; 
+static void xy240_readPortByteCallFunc(const iocshArgBuf *args )
+{
+   iocshXy240ReadPortByte(args[0].ival, args[1].ival);
+}
+      
+
+
+void iocshXy240LedCtl(int card, int led, int val)
+{
+      epicsPrintf("XY240: Turning the %s LED %s for card %d\n",
+         led?"green":"red", val?"on":"off", card);
+      if(!led) val=!val;  /* red led is inverse */
+      xy240_ledCtl(card, led, val); 
+}
+static const iocshArg *xy240_ledCtlArgs[] = {
+      &xy240_cardArg,
+      &xy240_ledArg,
+      &xy240_boolArg
+};
+static const iocshFuncDef xy240_ledCtlFuncDef =
+   {"xy240_ledCtl", 3, xy240_ledCtlArgs}; 
+static void xy240_ledCtlCallFunc(const iocshArgBuf *args )
+{
+   iocshXy240LedCtl(args[0].ival, args[1].ival, args[2].ival);
+}
+      
+
+
+//static const xy240_writeIMRArgs[] = {} //(int cardnum, epicsUInt8 byteval);
+//static const xy240_readIPRArgs[] = {}  //(int cardnum);
+//static const xy240_writeFlagBitArgs[] = {} // (int cardnum, epicsUInt8 bitnum, epicsBoolean bitval);
+//static const xy240_setResetFlagBitsArgs[] = {} //(int cardnum, epicsUInt8 bitmask, epicsBoolean set);
+//static const xy240_writeFlagByteArgs[] = {} // (int cardnum, epicsUInt8 bitnum, epicsUInt8 byteval);
+//static const xy240_writeCSRBitArgs[] = {} //(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval);
+
 static void drvXy240RegisterCommands(void)
 {
    static int firstTime = 1;
    if (firstTime) {
       iocshRegister(&drvXy240ConfigFuncDef, drvXy240ConfigCallFunc);
-/*      iocshRegister(&xy240_io_reportFuncDef, xy240_io_reportCallFunc); */
+      iocshRegister(&drvXy240ConfigWithInterruptsFuncDef, drvXy240ConfigWithInterruptsCallFunc);
       iocshRegister(&xy240_dio_outFuncDef, xy240_dio_outCallFunc);
       iocshRegister(&xy240_writeFuncDef, xy240_writeCallFunc);
+      iocshRegister(&xy240_writePortBitFuncDef, xy240_writePortBitCallFunc);
+      iocshRegister(&xy240_writePortByteFuncDef, xy240_writePortByteCallFunc);
+      iocshRegister(&xy240_readPortBitFuncDef, xy240_readPortBitCallFunc);
+      iocshRegister(&xy240_readPortByteFuncDef, xy240_readPortByteCallFunc);
+      iocshRegister(&xy240_ledCtlFuncDef, xy240_ledCtlCallFunc);
       firstTime = 0;
    }
 }
@@ -890,6 +1027,23 @@ epicsInt16 xy240_readPortByte(int cardnum, epicsUInt8 portnum)
 }
 
 
+/* read the value of a bit on a port */
+epicsInt16 xy240_readPortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum) 
+{
+   epicsUInt8 volatile *port;
+
+   if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr ) {
+      errlogPrintf("xy240_readByte(): Bad card number %d\n", cardnum);
+      return ERROR;
+   }
+
+   port = (epicsUInt8 *)&dio[cardnum].dptr->port0_1;
+
+   if(port[portnum] &  masks(bitnum))
+      return epicsTrue;
+   return epicsFalse;
+}
+
 /* control the state of the front panel LEDs */
 int xy240_ledCtl(int cardnum, epicsUInt8 led, epicsBoolean val)
 {
@@ -906,6 +1060,12 @@ int xy240_ledCtl(int cardnum, epicsUInt8 led, epicsBoolean val)
 
    return OK;
 }
+
+
+
+
+
+
 
 
 #if 0
