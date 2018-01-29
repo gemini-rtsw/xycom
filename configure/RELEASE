@@ -20,12 +20,6 @@
 # CONFIG_SITE file.
 
 TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
+EPICS_BASE=/gem_sw/epics/R3.14.12.7/base
 
-EPICS_RELEASE = $(shell echo "${GEM_EPICS_RELEASE}")
-EPICS_DIR=$(shell echo "${EPICS}")
-
-# If using the sequencer, point SNCSEQ at its top directory:
-#SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
-
-EPICS_BASE=$(EPICS_DIR)/base
 
