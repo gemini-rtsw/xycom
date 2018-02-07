@@ -122,7 +122,7 @@ typedef struct {
 } dio_rec_t;
 
 
-LOCAL  dio_rec_t *dio;   /* pointer to array of control structures*/
+LOCAL  dio_rec_t *dio = NULL;   /* pointer to array of control structures*/
 
 
 struct {
@@ -194,7 +194,10 @@ long xy240_init()
    int                    status;
    int                    at_least_one_present = FALSE;
 
+   printf("xy240_init\n");
 
+   /*Initialize onece only*/
+   if (dio != NULL) return OK;  
    /*
     * allow for runtime reconfiguration of the
     * addr map
@@ -457,6 +460,9 @@ int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
    xy240_num_cards = ncards;
    xy240_num_channels = nchannels;
    xy240_addrs = base;
+   
+   /*Don't do this matt*/
+  xy240_init();
    return 0;
 }
 
