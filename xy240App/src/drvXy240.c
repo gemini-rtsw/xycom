@@ -73,12 +73,16 @@ static short xy240_num_channels = 32;
 static size_t xy240_addrs = 0x8000;
 static short xy240_int_vec = 80;               
 static short xy240_int_level = 5;
+static size_t xy240_p45_initvalue = 0x0000;
+static size_t xy240_p67_initvalue = 0x0000;
 
 #define XY240_ADDR0       xy240_addrs
 #define XY240_MAX_CARDS   xy240_num_cards
 #define XY240_MAX_CHANS   xy240_num_channels
 #define XY240_INT_VEC     xy240_int_vec
 #define XY240_INT_LVL     xy240_int_level
+#define XY240_P45_IVAL     xy240_p45_initvalue
+#define XY240_P67_IVAL     xy240_p67_initvalue
 
 #define XY240_ANY_IRQ     8
 
@@ -194,10 +198,11 @@ long xy240_init()
    int                    status;
    int                    at_least_one_present = FALSE;
 
-   printf("xy240_init\n");
-
    /*Initialize onece only*/
    if (dio != NULL) return OK;  
+
+   printf("xy240_init\n");
+
    /*
     * allow for runtime reconfiguration of the
     * addr map
@@ -209,10 +214,13 @@ long xy240_init()
    status = devRegisterAddress("xy240", atVMEA16, XY240_ADDR0, 
                                 XY240_MAX_CARDS*sizeof(xy240Regs_t),
                                 (void *)&pdio_xy240);
+   printf("DBG1 Port 4-5 values: %0#4x, Port 6-7 values: %0#4x\n", pdio_xy240->port4_5, pdio_xy240->port6_7);
+
    if (status != OK){
       errlogPrintf("%s: Unable to map the XY240 A16 base addr\n", __FILE__);
       return ERROR;
    }
+      dio[i].sport6_7 = pdio_xy240->port6_7;   /* read and save high values for Output Port6-7 IA:20170316 */
 
    errlogPrintf("The value of pdio_xy240 is %p\n", pdio_xy240);
    for (i = 0; i < XY240_MAX_CARDS; i++, pdio_xy240++){
@@ -227,10 +235,24 @@ long xy240_init()
       /*
        *    register initialization
        */
+      
       pdio_xy240->csr = 0x3;                   /* red led off, green led on, interrupts disabled */
+      /*pdio_xy240->port4_5 = 0xaaff;   [> this initialises port 4 & 5 to the specified values <]*/
+      printf("DBG2 Port 4-5 values: %04x, Port 6-7 values: %04x\n", pdio_xy240->port4_5, pdio_xy240->port6_7);
       pdio_xy240->icr = 0x00;                  /* clear interrupt input register latch */
+      
+      /* 
+       * 20182003 IA Initialises output ports only after a power cycle 
+       */
+      if (pdio_xy240->port4_5 == 0xffff && pdio_xy240->port6_7 == 0xffff){
+          pdio_xy240->port4_5 = XY240_P45_IVAL;   /* this initialises port 4 & 5 to the specified values */
+          pdio_xy240->port6_7 = XY240_P67_IVAL;   /* this initialises port 6 & 7 to the specified values */
+      }
+
       pdio_xy240->pdr = 0xf0;                  /* ports 0-3,input;ports 4-7,output */
+      printf("DBG3 Port 4-5 values: %04x, Port 6-7 values: %04x\n", pdio_xy240->port4_5, pdio_xy240->port6_7);
       dio[i].sport2_3 = pdio_xy240->port2_3;   /* read and save high values (mdw wants to know why?) */
+      printf("DBG4 Port 4-5 values: %0#4x, Port 6-7 values: %#04x\n", pdio_xy240->port4_5, pdio_xy240->port6_7);
       dio[i].dptr = pdio_xy240;                /* store pointer to card registers */
 
       dio[i].dptr->ivr = XY240_INT_VEC + i;    /* set interrupt vector for this card */
@@ -466,6 +488,25 @@ int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
    return 0;
 }
 
+/*IA 20181903: This function allows the output ports to be initilised to a desired value*/
+int drvXy240ConfigOutputInit(
+        unsigned int ncards,
+        unsigned int nchannels,
+        size_t base,
+        size_t p45init,
+        size_t p67init )
+{
+   xy240_p45_initvalue = p45init;
+   xy240_p67_initvalue = p67init;
+   xy240_num_cards = ncards;
+   xy240_num_channels = nchannels;
+   xy240_addrs = base;
+   
+   /*Don't do this matt*/
+  xy240_init();
+   return 0;
+}
+
 int drvXy240ConfigWithInterrupts(
              unsigned int ncards, 
              unsigned int nchannels, 
@@ -495,6 +536,20 @@ static const iocshArg *drvXy240ConfigArgs[] = {
    &drvXy240ConfigArg4 
 };
 
+static const iocshArg drvXy240ConfigOutputInitArg0 = { "number of cards",            iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg1 = { "number of channel per card", iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg2 = { "base address of first card", iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg3 = { "Ports 4 & 5 initial value",  iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg4 = { "Ports 6 & 7 initial value",  iocshArgInt };
+
+static const iocshArg *drvXy240ConfigOutputInitArgs[] = { 
+   &drvXy240ConfigOutputInitArg0, 
+   &drvXy240ConfigOutputInitArg1, 
+   &drvXy240ConfigOutputInitArg2,
+   &drvXy240ConfigOutputInitArg3,
+   &drvXy240ConfigOutputInitArg4 
+};
+
 static const iocshFuncDef drvXy240ConfigFuncDef =
          {"drvXy240Config", 3, drvXy240ConfigArgs}; 
 static void drvXy240ConfigCallFunc(const iocshArgBuf *args )
@@ -507,6 +562,13 @@ static const iocshFuncDef drvXy240ConfigWithInterruptsFuncDef =
 static void drvXy240ConfigWithInterruptsCallFunc(const iocshArgBuf *args )
 {
    drvXy240ConfigWithInterrupts(args[0].ival, args[1].ival, args[2].ival, args[3].ival, args[4].ival);
+}
+
+static const iocshFuncDef drvXy240ConfigOutputInitFuncDef =
+      {"drvXy240ConfigOutputInit", 5, drvXy240ConfigOutputInitArgs}; 
+static void drvXy240ConfigOutputInitCallFunc(const iocshArgBuf *args )
+{
+   drvXy240ConfigOutputInit(args[0].ival, args[1].ival, args[2].ival, args[3].ival, args[4].ival);
 }
 
 
@@ -656,6 +718,7 @@ static void drvXy240RegisterCommands(void)
    static int firstTime = 1;
    if (firstTime) {
       iocshRegister(&drvXy240ConfigFuncDef, drvXy240ConfigCallFunc);
+      iocshRegister(&drvXy240ConfigOutputInitFuncDef, drvXy240ConfigOutputInitCallFunc);
       iocshRegister(&drvXy240ConfigWithInterruptsFuncDef, drvXy240ConfigWithInterruptsCallFunc);
       iocshRegister(&xy240_dio_outFuncDef, xy240_dio_outCallFunc);
       iocshRegister(&xy240_writeFuncDef, xy240_writeCallFunc);
@@ -907,7 +970,7 @@ int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, epics
    if(bitval)
       port[portnum] |= masks(bitnum);
    else
-      port[bitnum] &= ~masks(bitnum);
+      port[portnum] &= ~masks(bitnum);
 
    return OK;
 }
