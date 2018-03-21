@@ -40,7 +40,9 @@
  * .18   20160404   mdw   Converted to OSI compliance, simplified xy240_b?_io_report() routines,
  *                        fixed faulty implementation of xy240_dio_out()
  *       20171210   mdw   Begin additions to driver for general support with SCS partuclarly in mind
- *       10171210   mdw   devRegisterAddress [in xy240_init()] was reserving address space for only 1 card 
+ *       20171210   mdw   devRegisterAddress [in xy240_init()] was reserving address space for only 1 card
+ *       20180320   iap   Included drvXy240ConfigureOutputInit() to set initial values 
+ *            for Output Ports after a power cycle
  */
 
 
@@ -67,7 +69,11 @@
 /* Number of columns used in io_report. */
 #define IOR_MAX_COLS 4
 
-/* default values if the startup script doesn't call drvXy240Config() */
+/* default values if the startup script doesn't call neither:
+ * drvXy240Config()
+ * drvXyConfigWithInterrputs()
+ * drvXyConfigOutputInit()
+ */
 static short xy240_num_cards = 2;
 static short xy240_num_channels = 32;
 static size_t xy240_addrs = 0x8000;
@@ -242,9 +248,10 @@ long xy240_init()
       pdio_xy240->icr = 0x00;                  /* clear interrupt input register latch */
       
       /* 
-       * 20182003 IA Initialises output ports only after a power cycle 
+       * 20182003 IA: 
+       * Initialises output ports only after a power cycle and only for the for the first card
        */
-      if (pdio_xy240->port4_5 == 0xffff && pdio_xy240->port6_7 == 0xffff){
+      if (pdio_xy240->port4_5 == 0xffff && pdio_xy240->port6_7 == 0xffff && i == 0){
           pdio_xy240->port4_5 = XY240_P45_IVAL;   /* this initialises port 4 & 5 to the specified values */
           pdio_xy240->port6_7 = XY240_P67_IVAL;   /* this initialises port 6 & 7 to the specified values */
       }
@@ -488,7 +495,10 @@ int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
    return 0;
 }
 
-/*IA 20181903: This function allows the output ports to be initilised to a desired value*/
+/*IA 20181903: 
+ * This function allows the output ports to be initilised to a desired value.
+ * This is to initialize the output ports of the first card ONLY!
+ */
 int drvXy240ConfigOutputInit(
         unsigned int ncards,
         unsigned int nchannels,
