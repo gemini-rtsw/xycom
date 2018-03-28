@@ -204,7 +204,7 @@ long xy240_init()
    int                    status;
    int                    at_least_one_present = FALSE;
 
-   /*Initialize onece only*/
+   /* MRippa Feb 2018: Initialize onece only */
    if (dio != NULL) return OK;  
 
    printf("xy240_init\n");
