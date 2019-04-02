@@ -19,14 +19,8 @@
 # Build settings that are NOT module paths should appear in a
 # CONFIG_SITE file.
 
-EPICS_RELEASE=R3.14.12.7
-PROD_SUPP=/gem_sw/prod/$(EPICS_RELEASE)/support
-WORK_SUPP=/gem_sw/work/$(EPICS_RELEASE)/support
+EPICS_RELEASE=R3.14.12.8
 
-TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
-
-# If using the sequencer, point SNCSEQ at its top directory:
-#SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
 
 # EPICS_BASE usually appears last so other apps can override stuff:
 EPICS_BASE=/gem_sw/epics/$(EPICS_RELEASE)/base
