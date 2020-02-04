@@ -3,6 +3,8 @@ include $(TOP)/configure/CONFIG
 
 LIBRARY_IOC += xy240
 
+INC += drvXy240.h
+
 DBD = xy240.dbd
 xy240_DBD += base.dbd
 xy240_DBD += xy240driver.dbd
