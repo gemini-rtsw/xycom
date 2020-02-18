@@ -39,8 +39,9 @@
  * .17   08-04-93   mgb   Removed V5/V4 and EPICS_V2 conditionals
  * .18   20160404   mdw   Converted to OSI compliance, simplified xy240_b?_io_report() routines,
  *                        fixed faulty implementation of xy240_dio_out()
- *       20171210   mdw   Begin additions to driver for general support with SCS partuclarly in mind
- *       10171210   mdw   devRegisterAddress [in xy240_init()] was reserving address space for only 1 card 
+ *       20171210   mdw   Begin additions to driver for general support with SCS particularly in mind
+ *       20171210   mdw   devRegisterAddress [in xy240_init()] was reserving address space for only 1 card 
+ *       20200218   mdw   Added Ignacio's support for configuring output ports at startup
  */
 
 
@@ -67,18 +68,26 @@
 /* Number of columns used in io_report. */
 #define IOR_MAX_COLS 4
 
-/* default values if the startup script doesn't call drvXy240Config() */
+/* default values if the startup script doesn't call any of:
+ * drvXy240Config()
+ * drvXyConfigWithInterrputs()
+ * drvXyConfigOutputInit()
+ */
 static short xy240_num_cards = 2;
 static short xy240_num_channels = 32;
 static size_t xy240_addrs = 0x8000;
 static short xy240_int_vec = 80;               
 static short xy240_int_level = 5;
+static size_t xy240_p45_initvalue = 0x0000;
+static size_t xy240_p67_initvalue = 0x0000;
 
 #define XY240_ADDR0       xy240_addrs
 #define XY240_MAX_CARDS   xy240_num_cards
 #define XY240_MAX_CHANS   xy240_num_channels
 #define XY240_INT_VEC     xy240_int_vec
 #define XY240_INT_LVL     xy240_int_level
+#define XY240_P45_IVAL     xy240_p45_initvalue
+#define XY240_P67_IVAL     xy240_p67_initvalue
 
 #define XY240_ANY_IRQ     8
 
@@ -194,10 +203,12 @@ long xy240_init()
    int                    status;
    int                    at_least_one_present = FALSE;
 
+
    printf("xy240_init\n");
 
-   /*Initialize onece only*/
-   if (dio != NULL) return OK;  
+   /* MRippa Feb 2018: Initialize once only */
+   if (dio != NULL) return OK;
+
    /*
     * allow for runtime reconfiguration of the
     * addr map
@@ -216,6 +227,7 @@ long xy240_init()
 
    errlogPrintf("The value of pdio_xy240 is %p\n", pdio_xy240);
    for (i = 0; i < XY240_MAX_CARDS; i++, pdio_xy240++){
+      dio[i].sport6_7 = pdio_xy240->port6_7;   /* read and save high values for Output Port6-7 IA:20170316 */
 
       if(devReadProbe(sizeof(short), pdio_xy240, &val) != OK) {
          errlogPrintf("The value of pdio_xy240 is %p\n", pdio_xy240);
@@ -229,6 +241,18 @@ long xy240_init()
        */
       pdio_xy240->csr = 0x3;                   /* red led off, green led on, interrupts disabled */
       pdio_xy240->icr = 0x00;                  /* clear interrupt input register latch */
+
+      /* 
+       * 20182003 IA: 
+       * Initialises output ports only after a power cycle and only for the for the first card
+       */
+
+      if (pdio_xy240->port4_5 == 0xffff && pdio_xy240->port6_7 == 0xffff && i == 0){
+          pdio_xy240->port4_5 = XY240_P45_IVAL;   /* this initialises port 4 & 5 to the specified values */
+          pdio_xy240->port6_7 = XY240_P67_IVAL;   /* this initialises port 6 & 7 to the specified values */
+      }
+
+
       pdio_xy240->pdr = 0xf0;                  /* ports 0-3,input;ports 4-7,output */
       dio[i].sport2_3 = pdio_xy240->port2_3;   /* read and save high values (mdw wants to know why?) */
       dio[i].dptr = pdio_xy240;                /* store pointer to card registers */
@@ -466,6 +490,28 @@ int drvXy240Config(unsigned int ncards, unsigned int nchannels, size_t base)
    return 0;
 }
 
+/*IA 20181903: 
+ * This function allows the output ports to be initilised to a desired value.
+ * This is to initialize the output ports of the first card ONLY!
+ */
+int drvXy240ConfigOutputInit(
+        unsigned int ncards,
+        unsigned int nchannels,
+        size_t base,
+        size_t p45init,
+        size_t p67init )
+{
+   xy240_p45_initvalue = p45init;
+   xy240_p67_initvalue = p67init;
+   xy240_num_cards = ncards;
+   xy240_num_channels = nchannels;
+   xy240_addrs = base;
+
+   /*Don't do this matt*/
+  xy240_init();
+   return 0;
+}
+
 int drvXy240ConfigWithInterrupts(
              unsigned int ncards, 
              unsigned int nchannels, 
@@ -473,9 +519,9 @@ int drvXy240ConfigWithInterrupts(
              unsigned int int_vec, 
              unsigned int int_level )
 {
-   drvXy240Config(ncards, nchannels, base);
    xy240_int_vec = int_vec;
    xy240_int_level = int_level;
+   drvXy240Config(ncards, nchannels, base);
    
    return 0;
 }
@@ -486,6 +532,20 @@ static const iocshArg drvXy240ConfigArg1 = { "number of channel per card", iocsh
 static const iocshArg drvXy240ConfigArg2 = { "base address of first card", iocshArgInt };
 static const iocshArg drvXy240ConfigArg3 = { "interrupt vector",           iocshArgInt };
 static const iocshArg drvXy240ConfigArg4 = { "interrupt level",            iocshArgInt };
+
+static const iocshArg drvXy240ConfigOutputInitArg0 = { "number of cards",            iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg1 = { "number of channel per card", iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg2 = { "base address of first card", iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg3 = { "Ports 4 & 5 initial value",  iocshArgInt };
+static const iocshArg drvXy240ConfigOutputInitArg4 = { "Ports 6 & 7 initial value",  iocshArgInt };
+
+static const iocshArg *drvXy240ConfigOutputInitArgs[] = {
+   &drvXy240ConfigOutputInitArg0,
+   &drvXy240ConfigOutputInitArg1,
+   &drvXy240ConfigOutputInitArg2,
+   &drvXy240ConfigOutputInitArg3,
+   &drvXy240ConfigOutputInitArg4
+};
 
 static const iocshArg *drvXy240ConfigArgs[] = { 
    &drvXy240ConfigArg0, 
@@ -509,6 +569,12 @@ static void drvXy240ConfigWithInterruptsCallFunc(const iocshArgBuf *args )
    drvXy240ConfigWithInterrupts(args[0].ival, args[1].ival, args[2].ival, args[3].ival, args[4].ival);
 }
 
+static const iocshFuncDef drvXy240ConfigOutputInitFuncDef =
+      {"drvXy240ConfigOutputInit", 5, drvXy240ConfigOutputInitArgs};
+static void drvXy240ConfigOutputInitCallFunc(const iocshArgBuf *args )
+{
+   drvXy240ConfigOutputInit(args[0].ival, args[1].ival, args[2].ival, args[3].ival, args[4].ival);
+}
 
 static const iocshArg xy240_cardArg  = { "card number",   iocshArgInt };
 static const iocshArg xy240_portArg  = { "port number",   iocshArgInt };
@@ -656,6 +722,7 @@ static void drvXy240RegisterCommands(void)
    static int firstTime = 1;
    if (firstTime) {
       iocshRegister(&drvXy240ConfigFuncDef, drvXy240ConfigCallFunc);
+      iocshRegister(&drvXy240ConfigOutputInitFuncDef, drvXy240ConfigOutputInitCallFunc);
       iocshRegister(&drvXy240ConfigWithInterruptsFuncDef, drvXy240ConfigWithInterruptsCallFunc);
       iocshRegister(&xy240_dio_outFuncDef, xy240_dio_outCallFunc);
       iocshRegister(&xy240_writeFuncDef, xy240_writeCallFunc);
@@ -907,7 +974,7 @@ int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, epics
    if(bitval)
       port[portnum] |= masks(bitnum);
    else
-      port[bitnum] &= ~masks(bitnum);
+      port[portnum] &= ~masks(bitnum);
 
    return OK;
 }
