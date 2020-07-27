@@ -28,7 +28,7 @@ Source0: %{name}-%{version}.tar.gz
 ExclusiveArch: %{arch}
 Prefix: %{_prefix}
 ## You may specify dependencies here
-BuildRequires: epics-base-devel re2c gemini-ade
+BuildRequires: epics-base-devel re2c gemini-ade psmisc
 Requires: epics-base
 ## Switch dependency checking off
 # AutoReqProv: no
@@ -48,8 +48,13 @@ This is the module %{name}.
 %setup -q 
 
 %build
+# virtual X env for tdct
+Xvfb :1  -ac -nolisten tcp -nolisten unix &
+
 make distclean uninstall
-make
+DISPLAY=:1 make
+
+killall Xvfb
 
 %install
 export DONT_STRIP=1
