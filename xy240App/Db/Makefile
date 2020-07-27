@@ -12,7 +12,7 @@ vpath %.db $(SYS_DB_PATHS)
 # databases, templates, substitutions like this
 #TDCT_CFG = ../tdct.cfg
 DEPSCHS = $(wildcard ../*.sch)
-DB += xycom240Test.db
+#DB += xycom240Test.db
 
 include $(TOP)/configure/RULES
 #----------------------------------------
