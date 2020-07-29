@@ -91,6 +91,14 @@ rm -rf $RPM_BUILD_ROOT
    /%{_prefix}/%{name}/configure
 
 %changelog
+* Wed Jul 29 2020 fkraemer <fkraemer@gemini.edu> 3.15.8-2.1.12.20200729a48ad28
+- rolled back Xvfb stuff, not needed by tdct if it does not fail to build
+  reenabled test db builds added tdct dep as build requirement
+  (fkraemer@gemini.edu)
+- deactivate test database build for now. TODO: solve issues building them
+  (fkraemer@gemini.edu)
+- fire up Xvfb to build databases (tdct needs it) (fkraemer@gemini.edu)
+
 * Sun Jul 26 2020 fkraemer <fkraemer@gemini.edu> 3.15.8-2.1.12.202007260e35513
 - new package built with tito
 
