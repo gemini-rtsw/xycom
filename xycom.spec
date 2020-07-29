@@ -28,7 +28,7 @@ Source0: %{name}-%{version}.tar.gz
 ExclusiveArch: %{arch}
 Prefix: %{_prefix}
 ## You may specify dependencies here
-BuildRequires: epics-base-devel re2c gemini-ade psmisc
+BuildRequires: epics-base-devel re2c tdct
 Requires: epics-base
 ## Switch dependency checking off
 # AutoReqProv: no
@@ -49,18 +49,19 @@ This is the module %{name}.
 
 %build
 # virtual X env for tdct
-Xvfb :1  -ac -nolisten tcp -nolisten unix &
+#Xvfb :1  -ac -nolisten tcp -nolisten unix &
 
 make distclean uninstall
-DISPLAY=:1 make
-
-killall Xvfb
+#DISPLAY=:1 make
+make
+#killall Xvfb
 
 %install
 export DONT_STRIP=1
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{_prefix}/%{name}
 cp -r dbd $RPM_BUILD_ROOT/%{_prefix}/%{name}
+cp -r db $RPM_BUILD_ROOT/%{_prefix}/%{name}
 #cp -r bin $RPM_BUILD_ROOT/%{_prefix}/%{name}
 cp -r lib $RPM_BUILD_ROOT/%{_prefix}/%{name}
 cp -r include $RPM_BUILD_ROOT/%{_prefix}/%{name}
@@ -84,6 +85,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files devel
 %defattr(-,root,root)
+   /%{_prefix}/%{name}/db
    /%{_prefix}/%{name}/dbd
    /%{_prefix}/%{name}/include
    /%{_prefix}/%{name}/configure
