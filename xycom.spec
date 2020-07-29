@@ -40,7 +40,7 @@ This is the module %{name}.
 %package devel
 Summary: %{name}-devel Package
 Group: Development/Gemini
-Requires: %{name} tdct
+Requires: %{name} tdct epics-base-devel
 %description devel
 This is the module %{name}.
 
