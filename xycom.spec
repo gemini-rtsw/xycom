@@ -21,7 +21,7 @@
 Summary: %{name} Package, a module for EPICS base
 Name: %{name}
 Version: %{version}
-Release: %release.%(date +"%Y%m%d")%{checkout}%{?dist}
+Release: %release.%(date +"%Y%m%d%H%M")%{checkout}%{?dist}
 License: EPICS Open License
 Group: Applications/Engineering
 Source0: %{name}-%{version}.tar.gz
