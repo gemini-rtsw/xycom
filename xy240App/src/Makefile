@@ -5,9 +5,13 @@ LIBRARY_IOC += xy240
 
 INC += drvXy240.h
 
-DBD = xy240.dbd
-#xy240_DBD += base.dbd
-xy240_DBD += xy240driver.dbd
+DBD += xy240.dbd
+DBD += xy240Supp.dbd
+
+xy240Supp_DBD += xy240driver.dbd
+
+xy240_DBD += $(xy240Supp_DBD)
+xy240_DBD += base.dbd 
 
 
 xy240_SRCS += drvXy240.c
