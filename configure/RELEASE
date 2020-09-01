@@ -23,6 +23,13 @@
 # EPICS_BASE usually appears last so other apps can override stuff:
 EPICS_BASE=/gem_base/epics/epics-base
 
+# include local RELEASE configuration file (this will be ignored by with
+# .gitignore to keep it local and prevent poisoning the default build 
+# scheme)
+# overwrite configuration from above with this file and do not edit
+# this one
+-include $(TOP)/configure/RELEASE.local
+
 # Set RULES here if you want to take build rules from somewhere
 # other than EPICS_BASE:
 #RULES=/path/to/epics/support/module/rules/x-y

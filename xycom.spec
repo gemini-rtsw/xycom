@@ -91,6 +91,16 @@ rm -rf $RPM_BUILD_ROOT
    /%{_prefix}/%{name}/configure
 
 %changelog
+* Fri Aug 28 2020 Felix Kraemer <fkraemer@gemini.edu> 3.15.8-2.1.12.202008282033f6e1f5d
+- adjustments to include configure/RELEASE.local from within configure/RELEASE
+  to overwrite default configuration with local specifics for testing purposes
+  (fkraemer@gemini.edu)
+- Added support dbd to be used by IOCs (iarriagada@gemini.edu)
+- Release tag enriched with hour and minute (%%H%%M) to be able to build
+  several RPMs a day without messing up the repo (fkraemer@gemini.edu)
+- added epics-base-devel as dependecy for xycom-devel (fkraemer@gemini.edu)
+- added tdct as dependency for xycom-devel (fkraemer@gemini.edu)
+
 * Wed Jul 29 2020 fkraemer <fkraemer@gemini.edu> 3.15.8-2.1.12.20200729a48ad28
 - rolled back Xvfb stuff, not needed by tdct if it does not fail to build
   reenabled test db builds added tdct dep as build requirement

@@ -11,3 +11,4 @@ data
 include
 lib
 .git
+/configure/RELEASE.local
