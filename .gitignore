@@ -12,3 +12,5 @@ include
 lib
 .git
 /configure/RELEASE.local
+/.tito/releasers.conf
+/configure/CONFIG_SITE.local
