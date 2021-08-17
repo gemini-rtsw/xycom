@@ -134,15 +134,13 @@ typedef struct {
 LOCAL  dio_rec_t *dio = NULL;   /* pointer to array of control structures*/
 
 
-struct {
-   long    number;
-   DRVSUPFUN       report;
-   DRVSUPFUN       init;
-} drvXy240={
+drvet drvXy240 =
+{
    2,
    xy240_io_report,
-   xy240_init};
-epicsExportAddress(drvet,drvXy240);
+   xy240_init
+};
+epicsExportAddress(drvet, drvXy240);
 
 
 /*

@@ -76,7 +76,7 @@ BINARYDSET devMbbiXy240={6,NULL,NULL,init_mbbi,mbbi_ioinfo,read_mbbi};
 epicsExportAddress(dset,devMbbiXy240);
 BINARYDSET devMbboXy240={6,NULL,NULL,init_mbbo,       NULL,write_mbbo};
 epicsExportAddress(dset,devMbboXy240);
-
+
 static long init_bi( struct biRecord	*pbi)
 {
     struct vmeio *pvmeio;

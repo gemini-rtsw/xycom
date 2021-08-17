@@ -129,15 +129,11 @@ static void rval_convert(unsigned short *rval);
 static void xy566_rval_report(short card, short type);
 
 
-
-struct {
-   long   number;
-   DRVSUPFUN   report;
-   DRVSUPFUN   init;
-} drvXy566={
+drvet drvXy566={
    2,
    xy566_report,
-   xy566_init};
+   xy566_init
+};
 epicsExportAddress(drvet,drvXy566);
 
 static long xy566_init(void)

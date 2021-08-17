@@ -63,7 +63,8 @@ epicsExportAddress(dset,devWfXy566Sc);
 
 static int myCallback(struct waveformRecord *pwf, int no_read, unsigned char *pdata)
 {
-   struct rset *prset=(struct rset *)(pwf->rset);
+   //struct rset *prset=(struct rset *)(pwf->rset);
+   rset *prset = (rset *) (pwf->rset);
    short ftvl = pwf->ftvl;
 
    if(!pwf->busy) return -1;
@@ -78,7 +79,7 @@ static int myCallback(struct waveformRecord *pwf, int no_read, unsigned char *pd
       recGblRecordError(S_db_badField,(void *)pwf, "read_wf - illegal ftvl");
       recGblSetSevr(pwf,READ_ALARM,INVALID_ALARM);
    }
-   (*prset->process)(pwf);
+   (*prset->process)( (struct dbCommon*) pwf);
    dbScanUnlock((struct dbCommon *)pwf);
    return 0;
 }
