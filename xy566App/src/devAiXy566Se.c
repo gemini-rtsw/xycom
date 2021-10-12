@@ -95,26 +95,28 @@ static long xy566Se_init_record(struct aiRecord *pai)
 
 static long xy566Se_read_ai(struct aiRecord *pai)
 {
-   unsigned short value;
-   struct vmeio *pvmeio;
-   long status;
+    unsigned short value;
+    struct vmeio *pvmeio;
+    long status;
 
-   
-   pvmeio = (struct vmeio *)&(pai->inp.value);
-   status=ai_xy566_driver(pvmeio->card,pvmeio->signal,XY566SE,&value);
-   if(status==-1) {
-      status = 2; /*don't convert*/
-      if(recGblSetSevr(pai,READ_ALARM,INVALID_ALARM) && errVerbose
-                       && (pai->stat!=READ_ALARM || pai->sevr!=INVALID_ALARM))
-         recGblRecordError(-1,(void *)pai,"ai_xy566_driver Error");
-         return(status);
-   } else if(status==-2) {
+    pvmeio = (struct vmeio *)&(pai->inp.value);
+    status=ai_xy566_driver(pvmeio->card,pvmeio->signal,XY566SE,&value);
+    if(status==-1) {
+        status = 2; /*don't convert*/
+        if( recGblSetSevr(pai,READ_ALARM,INVALID_ALARM) && 
+                errVerbose && 
+                (pai->stat!=READ_ALARM || pai->sevr!=INVALID_ALARM)) 
+        {
+            recGblRecordError(-1,(void *)pai,"ai_xy566_driver Error");
+        }
+        return(status);
+    } else if(status==-2) {
         status=0;
         recGblSetSevr(pai,HW_LIMIT_ALARM,INVALID_ALARM);
-     }
-   if(status!=0) return(status);
-   pai->rval = value & 0xfff;
-   return(status);
+    }
+    if(status!=0) return(status);
+    pai->rval = value & 0xfff;
+    return(status);
 }
 
 static long xy566Se_special_linconv(struct aiRecord *pai, int after)
