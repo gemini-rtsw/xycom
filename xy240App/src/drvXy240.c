@@ -157,13 +157,12 @@ static int dio_scan()
 
 {   
    int i;
-   int first_scan,first_scan_complete;
+   int first_scan;
 
    for(;;){
       if(interruptAccept) break;
       epicsThreadSleep(0.05);
    }
-   first_scan_complete = FALSE;
    first_scan = TRUE;
    for (;;) {
       for (i = 0; i < XY240_MAX_CARDS; i++) {
@@ -180,7 +179,6 @@ static int dio_scan()
          }
          if (first_scan) {
             first_scan = 0;
-            first_scan_complete = 1;
          }
       epicsThreadSleep(0.05);
    }
