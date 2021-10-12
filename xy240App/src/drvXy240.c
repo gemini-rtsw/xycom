@@ -127,7 +127,7 @@ typedef struct {
    epicsUInt8 int_lvl;                     /* interrupt level */
    unsigned int intr_num;                  /* interrupt count*/
    void (*pISR[9])(int);                   /* interrupt service routine pointers */
-   epicsBoolean intConnected;              /* true if this card has interrupts connected */
+   bool intConnected;              /* true if this card has interrupts connected */
 } dio_rec_t;
 
 
@@ -579,9 +579,7 @@ static const iocshArg xy240_portArg  = { "port number",   iocshArgInt };
 static const iocshArg xy240_boolArg  = { "boolean value", iocshArgInt };
 static const iocshArg xy240_ledArg   = { "LED (red=0, green=1)", iocshArgInt };
 static const iocshArg xy240_val8Arg  = { "8-bit value",   iocshArgInt };
-static const iocshArg xy240_val16Arg = { "16-bit value",  iocshArgInt };
 static const iocshArg xy240_val32Arg = { "32-bit value",  iocshArgInt };
-static const iocshArg xy240_val64Arg = { "64-bit value",  iocshArgInt };
 static const iocshArg xy240_bitArg   = { "bit number",    iocshArgInt };
 
 static const iocshArg *xy240_dio_outArgs[] = { 
@@ -706,15 +704,6 @@ static void xy240_ledCtlCallFunc(const iocshArgBuf *args )
    iocshXy240LedCtl(args[0].ival, args[1].ival, args[2].ival);
 }
       
-
-
-//static const xy240_writeIMRArgs[] = {} //(int cardnum, epicsUInt8 byteval);
-//static const xy240_readIPRArgs[] = {}  //(int cardnum);
-//static const xy240_writeFlagBitArgs[] = {} // (int cardnum, epicsUInt8 bitnum, epicsBoolean bitval);
-//static const xy240_setResetFlagBitsArgs[] = {} //(int cardnum, epicsUInt8 bitmask, epicsBoolean set);
-//static const xy240_writeFlagByteArgs[] = {} // (int cardnum, epicsUInt8 bitnum, epicsUInt8 byteval);
-//static const xy240_writeCSRBitArgs[] = {} //(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval);
-
 static void drvXy240RegisterCommands(void)
 {
    static int firstTime = 1;
@@ -912,7 +901,7 @@ long xy240_intDisconnect(int cardnum, int irqchan)
     * the calling program will also have to call xy240_writeIMR() first to mask the channels
     * that it was interested in */ 
    if(irqchan<XY240_ANY_IRQ)
-     dio[cardnum].dptr->imr &= !masks(irqchan); 
+     dio[cardnum].dptr->imr &= ~(1<<irqchan); 
 
    /* clear the interrupt routine pointer for this irq channel */
    dio[cardnum].pISR[irqchan] = NULL;
@@ -946,7 +935,7 @@ int  xy240_readIPR(int cardnum)
 
 
 
-int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, epicsBoolean bitval) 
+int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, bool bitval) 
 {
    epicsUInt8 volatile *port;
 
@@ -999,7 +988,7 @@ int xy240_writePortByte(int cardnum, epicsUInt8 portnum, epicsUInt8 byteval)
    return OK;
 }
 
-int xy240_writeFlagBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval) 
+int xy240_writeFlagBit(int cardnum, epicsUInt8 bitnum, bool bitval) 
 {
    if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr ) {
       errlogPrintf("xy240_writeFlagBit(): Bad card number %d\n", cardnum);
@@ -1020,7 +1009,7 @@ int xy240_writeFlagBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval)
 }
 
 
-int xy240_setResetFlagBits(int cardnum, epicsUInt8 bitmask, epicsBoolean set) 
+int xy240_setResetFlagBits(int cardnum, epicsUInt8 bitmask, bool set) 
 {
    if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr) {
       errlogPrintf("xy240_writeFlagBit(): Bad card number %d\n", cardnum);
@@ -1062,7 +1051,7 @@ int xy240_writeIMR(int cardnum, epicsUInt8 byteval)
 
 
 /* Set or reset an individual Control and Status Register bit */
-int xy240_writeCSRBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval)
+int xy240_writeCSRBit(int cardnum, epicsUInt8 bitnum, bool bitval)
 {
    if(cardnum<0 || cardnum>XY240_MAX_CARDS || !dio[cardnum].dptr ) {
       errlogPrintf("xy240_writeSCSBit(): Bad card number %d\n", cardnum);
@@ -1116,7 +1105,7 @@ epicsInt16 xy240_readPortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum)
 }
 
 /* control the state of the front panel LEDs */
-int xy240_ledCtl(int cardnum, epicsUInt8 led, epicsBoolean val)
+int xy240_ledCtl(int cardnum, epicsUInt8 led, bool val)
 {
    if(led>1) {
       errlogPrintf("xy240_ledCtl(): bad LED number %d for card %d\n",
@@ -1131,13 +1120,6 @@ int xy240_ledCtl(int cardnum, epicsUInt8 led, epicsBoolean val)
 
    return OK;
 }
-
-
-
-
-
-
-
 
 #if 0
 /* this stuff not needed for SCS.... Complete later, maybe. */
@@ -1155,21 +1137,21 @@ int xy240ReadIVR(int card) {}
 int xy240WriteIVR(int card, epicsUInt8 byteval) {}
 int xy240ReadIMR(int card) {}
 int xy240ReadIMRBit(int card, epicsUInt8 bitnum) {}
-int xy240WriteIMRBit(int card, epicsUInt8 bitnum, epicsBoolean bitval) {}
+int xy240WriteIMRBit(int card, epicsUInt8 bitnum, bool bitval) {}
 int xy240WriteICR(int card, epicsUInt8 byteval) {}
-int xy240WriteICRBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval) {}
+int xy240WriteICRBit(int cardnum, epicsUInt8 bitnum, bool bitval) {}
 
 
 int xy240ReadPDR(int card) {}
 int xy240ReadPDRBit(int card, epicsUInt8 bitnum) {} 
 int xy240WritePDR(int card, epicsUInt8 byteval) {}
-int xy240WritePDRBit(int card, epicsUInt8 bitnum, epicsBoolean bitval) {}
+int xy240WritePDRBit(int card, epicsUInt8 bitnum, bool bitval) {}
 
 
 int xy240ReadCSR(int card) {}
 int xy240ReadCSRBit(int card, epicsUInt8 bitnum) {}
 int xy240WriteCSR(int card, epicsUInt8 byteval) {}
-int xy240WriteCSRBit(int card, epicsUInt8 bitnum, epicsBoolean bitval) {}
+int xy240WriteCSRBit(int card, epicsUInt8 bitnum, bool bitval) {}
 
 
 int xy240Help(void) {/* print out available xy240 shell commands */}

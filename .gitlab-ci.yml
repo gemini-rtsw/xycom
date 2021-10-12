@@ -8,4 +8,4 @@ include:
       
 
 variables:
-    BASE_CONTAINER: "registry.gitlab.com/nsf-noirlab/gemini/rtsw/epics-base/epics-base/testing/master:latest"
+    BASE_CONTAINER: "registry.gitlab.com/nsf-noirlab/gemini/rtsw/iocs/examplesoftioc/unstable/devel-containerization:latest"

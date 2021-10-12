@@ -7,6 +7,7 @@
 
 #include <epicsTypes.h>
 #include <dbScan.h>
+#include <stdbool.h> /* mrippa needs C99 or higher */
 
 #define OK 0
 #define ERROR (-1)
@@ -40,15 +41,15 @@ long xy240_intConnect(int cardnum, int irqchan, void (*proutine)(int));
 long xy240_intDisconnect(int cardnum, int irqchan);
 int xy240_writeIMR(int cardnum, epicsUInt8 byteval);
 int  xy240_readIPR(int cardnum);
-int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, epicsBoolean bitval);
+int xy240_writePortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum, bool bitval);
 int xy240_writePortByte(int cardnum, epicsUInt8 portnum, epicsUInt8 byteval);
 epicsInt16 xy240_readPortByte(int cardnum, epicsUInt8 portnum);
 epicsInt16 xy240_readPortBit(int cardnum, epicsUInt8 portnum, epicsUInt8 bitnum);
-int xy240_writeFlagBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval);
-int xy240_setResetFlagBits(int cardnum, epicsUInt8 bitmask, epicsBoolean set);
+int xy240_writeFlagBit(int cardnum, epicsUInt8 bitnum, bool bitval);
+int xy240_setResetFlagBits(int cardnum, epicsUInt8 bitmask, bool set);
 int xy240_writeFlagByte(int cardnum, epicsUInt8 bitnum, epicsUInt8 byteval);
-int xy240_writeCSRBit(int cardnum, epicsUInt8 bitnum, epicsBoolean bitval);
-int xy240_ledCtl(int cardnum, epicsUInt8 led, epicsBoolean val);
+int xy240_writeCSRBit(int cardnum, epicsUInt8 bitnum, bool bitval);
+int xy240_ledCtl(int cardnum, epicsUInt8 led, bool val);
 
 
 #endif
