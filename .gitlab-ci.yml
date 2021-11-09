@@ -4,8 +4,12 @@ include:
     ref: master
     file: 
      - '/templates/gitlab-ci/templates/global-rpm-container-docker.gitlab-ci.template.yml'
-     - '/templates/gitlab-ci/templates/app-rpm-container-docker.gitlab-ci.template.yml'
+     - '/templates/gitlab-ci/templates/epics-base-rpm-container-docker.gitlab-ci.template.yml'
       
 
 variables:
-    BASE_CONTAINER: "registry.gitlab.com/nsf-noirlab/gemini/rtsw/iocs/examplesoftioc/unstable/devel-containerization:latest"
+    # BASE_CONTAINER is only used for gemini-ade, epics-base and all ioc projects.
+    # For all other projects (where essentially only an RPM is build and deployed
+    # to one of the repos defined by the three types of projects above) this
+    # setting is derived from the branch name
+    BASE_CONTAINER: "registry.gitlab.com/nsf-noirlab/gemini/rtsw/common/gemini-ade/stable:latest"
