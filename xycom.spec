@@ -19,7 +19,7 @@
 Summary: %{name} Package, a module for EPICS base
 Name: %{name}
 Version: 2.1.12
-Release: 2%{?dist}
+Release: 3%{?dist}
 License: EPICS Open License
 Group: Applications/Engineering
 Source0: %{name}-%{version}.tar.gz
@@ -89,6 +89,17 @@ rm -rf $RPM_BUILD_ROOT
    /%{_prefix}/%{name}/configure
 
 %changelog
+* Tue Nov 09 2021 Matt Rippa <matt.rippa@noirlab.edu> 2.1.12-3
+- Build for testing/2021q4:latest
+-  Removed the unused variable. Closes #5
+-  Reformated to gaurd the test. Closes #4
+- Uses <stdbool.h> to fix epicsBoolean. Closes #3
+- Changes after gem-init-project.sh -f -l app
+- include basic template section for including locals
+- New dset and rset structures
+- Add new TYPED flags for EPICS7 and arrange dbd's with base.dbd.
+- Reorder including base.dbd. Closes #1
+
 * Thu Oct 08 2020 fkraemer <fkraemer@gemini.edu> 2.1.12-2
 - applied new version/release scheme and new yum repository structure
 - Automatic commit of package [xycom] release
