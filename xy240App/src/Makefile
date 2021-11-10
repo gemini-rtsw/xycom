@@ -11,7 +11,8 @@ DBD += xy240Supp.dbd
 xy240_DBD += base.dbd
 xy240_DBD += xy240driver.dbd
 
-xy240Supp_DBD += base.dbd
+#xy240Supp_DBD += base.dbd
+xy240Supp_DBD += stdRecords.dbd
 xy240Supp_DBD += xy240driver.dbd
 xy240_DBD += $(xy240Supp_DBD)
 
