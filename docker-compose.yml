@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+        unstable-2022q1-tr4-iarriagada:
+                image: registry.gitlab.com/nsf-noirlab/gemini/rtsw/epics-base/epics-base/unstable/2022q1-tr4:latest
+                hostname: unstable-2022q1-tr4-iarriagada-CONTAINER
+                stdin_open: true
+                tty: true
+                tmpfs:
+                        - /tmp
+                        - /run
+                network_mode: host
+                working_dir: "$PWD"
+                environment:
+                        - HOME=$HOME
+                volumes:
+                        - /home:/home
+                        - /gem_test:/gem_test
+                        - /etc/passwd:/etc/passwd:ro
+                        - /etc/shadow:/etc/shadow:ro
+                        - /etc/sudoers:/etc/sudoers:ro
+                        - /etc/sudoers.d:/etc/sudoers.d:ro
+                        - /etc/nsswitch.conf:/etc/nsswitch.conf:ro
+                        - /sys/fs/cgroup:/sys/fs/cgroup:ro
+                        - /var/lib/sss/pipes/:/var/lib/sss/pipes/:rw
+
