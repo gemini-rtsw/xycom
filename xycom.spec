@@ -71,7 +71,6 @@ if [ "$1" = "0" ]; then
 	rm -rf %{_prefix}/%{name}
 fi
 
-
 %clean
 rm -rf $RPM_BUILD_ROOT
 
