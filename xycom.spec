@@ -66,7 +66,6 @@ cp -r include $RPM_BUILD_ROOT/%{_prefix}/%{name}
 cp -r configure $RPM_BUILD_ROOT/%{_prefix}/%{name}
 #find $RPM_BUILD_ROOT/%{_prefix}/%{name}/configure -name ".git" -exec rm -rf {} \;
 
-
 %postun
 if [ "$1" = "0" ]; then
 	rm -rf %{_prefix}/%{name}
