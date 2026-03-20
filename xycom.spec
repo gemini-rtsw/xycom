@@ -19,7 +19,7 @@
 Summary: %{name} Package, a module for EPICS base
 Name: %{name}
 Version: 2.1.12
-Release: 2%{?dist}
+Release: 0%{?dist}
 License: EPICS Open License
 Group: Applications/Engineering
 Source0: %{name}-%{version}.tar.gz
